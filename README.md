@@ -46,10 +46,24 @@ A full-stack web application that ingests and analyzes app reviews using AI-powe
 ## Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose
+- Docker and Docker Compose installed
 - (Optional) SerpAPI key for real data
 
-### Running with Docker Compose
+### Option 1: Using Start Script (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/Ganesh-Th/project-scrap.git
+cd project-scrap
+
+# Start everything with one command
+./start.sh
+
+# Or using Make
+make start
+```
+
+### Option 2: Using Docker Compose Directly
 
 1. **Clone the repository**:
    ```bash
@@ -59,9 +73,9 @@ A full-stack web application that ingests and analyzes app reviews using AI-powe
 
 2. **Set up environment** (optional):
    ```bash
-   # Create .env file in project root
-   echo "SERPAPI_KEY=your_key_here" > .env
-   # Or use demo mode with: SERPAPI_KEY=demo_key
+   # Copy example env file
+   cp .env.example .env
+   # Edit if needed (default uses demo mode)
    ```
 
 3. **Start all services**:
@@ -73,6 +87,12 @@ A full-stack web application that ingests and analyzes app reviews using AI-powe
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
+
+5. **Check health**:
+   ```bash
+   ./health-check.sh
+   # Or: make health
+   ```
 
 ### Manual Setup (Development)
 
@@ -138,6 +158,33 @@ A full-stack web application that ingests and analyzes app reviews using AI-powe
    ```
 
 ## Usage
+
+### Quick Test
+
+1. **Start the system** (if not already running):
+   ```bash
+   make start  # or ./start.sh
+   ```
+
+2. **Open the dashboard**: http://localhost:3000
+
+3. **Create your first analysis**:
+   - Enter app name: "Test App"
+   - Enter app ID: "com.test.app"
+   - Click "Start Analysis"
+
+4. **Watch the progress**:
+   - Job moves through: queued → fetching → analyzing → clustering → done
+   - Takes about 10-30 seconds
+
+5. **View results**:
+   - Sentiment analysis
+   - Review categories
+   - Themes and tasks with RICE scores
+
+For detailed testing instructions, see [TESTING.md](TESTING.md).
+
+### Using the Dashboard
 
 1. **Create a New Analysis Job**:
    - Enter an app name (e.g., "My App")
@@ -230,6 +277,23 @@ project-scrap/
 ```
 
 ## Development
+
+For development setup and contributing guidelines, see:
+- [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
+- [TESTING.md](TESTING.md) - Testing guide
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment
+
+### Quick Commands
+
+```bash
+make start          # Start all services
+make stop           # Stop all services
+make logs           # View logs
+make health         # Check health
+make clean          # Clean up everything
+make help           # Show all commands
+```
 
 ### Adding New Features
 

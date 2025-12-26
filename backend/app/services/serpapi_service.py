@@ -44,6 +44,8 @@ class SerpAPIService:
     
     def _generate_mock_reviews(self, num_reviews: int) -> List[Dict]:
         """Generate mock reviews for demo purposes"""
+        from datetime import timedelta
+        
         mock_reviews_templates = [
             {"rating": 5, "content": "Amazing app! The new dark mode feature is exactly what I needed. Love it!", "sentiment": "positive"},
             {"rating": 1, "content": "App crashes every time I try to upload a photo. Please fix this bug!", "sentiment": "negative"},
@@ -68,13 +70,19 @@ class SerpAPIService:
         ]
         
         reviews = []
+        base_time = datetime.utcnow()
+        
         for i in range(min(num_reviews, len(mock_reviews_templates) * 3)):
             template = mock_reviews_templates[i % len(mock_reviews_templates)]
+            # Generate varied timestamps (reviews from last 30 days)
+            days_ago = (i * 1.5) % 30  # Spread reviews over 30 days
+            review_time = base_time - timedelta(days=days_ago, hours=(i * 3) % 24)
+            
             reviews.append({
                 "author": f"User{i+1}",
                 "rating": template["rating"],
                 "content": template["content"],
-                "date": datetime.utcnow().isoformat()
+                "date": review_time.isoformat()
             })
         
         return reviews

@@ -121,24 +121,30 @@ class ClusteringService:
 class ThemeToTaskConverter:
     """Convert themes into actionable tasks with RICE scoring"""
     
+    # RICE scoring defaults
+    DEFAULT_IMPACT = 3  # Medium impact
+    DEFAULT_CONFIDENCE = 80  # 80% confidence
+    DEFAULT_EFFORT = 5  # 5 person-weeks
+    REACH_MULTIPLIER = 10  # Reviews to reach multiplier
+    
     def convert_theme_to_task(self, theme: Dict) -> Dict:
         """Convert a theme into a task with initial RICE scores"""
         # Estimate RICE based on theme characteristics
-        reach = theme.get("review_count", 1) * 10  # More reviews = more users affected
+        reach = theme.get("review_count", 1) * self.REACH_MULTIPLIER
         
         # Impact based on sentiment and category
         avg_sentiment = theme.get("avg_sentiment", 0.5)
-        impact = 3  # Default medium impact
+        impact = self.DEFAULT_IMPACT
         if avg_sentiment < 0.3:
             impact = 5  # High impact for negative sentiment
         elif avg_sentiment > 0.7:
             impact = 2  # Lower impact for already positive
         
         # Confidence - default medium
-        confidence = 80  # 80% confidence
+        confidence = self.DEFAULT_CONFIDENCE
         
         # Effort - estimate based on complexity (simplified)
-        effort = 5  # Default medium effort in person-weeks
+        effort = self.DEFAULT_EFFORT
         
         # Calculate RICE score: (Reach × Impact × Confidence) / Effort
         rice_score = (reach * impact * confidence) / (100 * effort)

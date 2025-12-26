@@ -5,7 +5,12 @@ from typing import Dict, List
 class SentimentAnalyzer:
     def __init__(self):
         """Initialize sentiment analysis pipeline"""
-        self.device = 0 if torch.cuda.is_available() else -1
+        # Use -1 for CPU, or specific GPU if available and configured
+        if torch.cuda.is_available():
+            self.device = torch.cuda.current_device()
+        else:
+            self.device = -1
+        
         # Use a lightweight model for sentiment analysis
         try:
             self.classifier = pipeline(

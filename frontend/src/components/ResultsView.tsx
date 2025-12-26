@@ -49,7 +49,9 @@ export default function ResultsView({ results, onUpdate }: ResultsViewProps) {
     neutral: results.reviews.filter(r => r.sentiment === 'neutral').length,
   };
 
-  const avgRating = results.reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / results.reviews.length;
+  const avgRating = results.reviews.length > 0 
+    ? results.reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / results.reviews.length 
+    : 0;
 
   return (
     <div className="space-y-6">

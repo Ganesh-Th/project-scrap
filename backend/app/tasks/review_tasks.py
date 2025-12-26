@@ -51,12 +51,20 @@ def process_reviews(self, job_id: int):
             labels = classifier.classify(review_data.get("content", ""))
             
             # Create review object
+            review_date = datetime.utcnow()
+            if review_data.get("date"):
+                try:
+                    date_str = review_data.get("date").replace('Z', '+00:00')
+                    review_date = datetime.fromisoformat(date_str)
+                except (ValueError, AttributeError):
+                    pass  # Use default datetime.utcnow()
+            
             review = Review(
                 job_id=job_id,
                 author=review_data.get("author"),
                 rating=review_data.get("rating"),
                 content=review_data.get("content"),
-                date=datetime.fromisoformat(review_data.get("date").replace('Z', '+00:00')) if review_data.get("date") else datetime.utcnow(),
+                date=review_date,
                 sentiment=sentiment_result["sentiment"],
                 sentiment_score=sentiment_result["score"],
                 is_bug=labels.get("bug", 0.0),

@@ -1,0 +1,16 @@
+# Required packages for Test_Serp_Api.py
+# Install with: pip install -r requirements.txt
+
+# SerpApi for Google Play Store and Apple App Store scraping
+google-search-results>=2.4.2
+
+# HTTP requests library for Reddit scraping
+requests>=2.31.0
+
+# HTML parsing for Reddit scraping
+beautifulsoup4>=4.12.0
+
+# Google Gemini API for sentiment analysis
+google-generativeai>=0.3.0
+
+

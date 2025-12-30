@@ -13,12 +13,12 @@ SERPAPI_KEY = os.getenv('SERPAPI_KEY')
 if not SERPAPI_KEY:
     raise RuntimeError("SERPAPI_KEY not set")
 
-# GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-# if not GEMINI_API_KEY:
-#     raise RuntimeError("GEMINI_API_KEY not set")
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY not set")
 
-# # Initialize Gemini
-# genai.configure(api_key=GEMINI_API_KEY)
+# Initialize Gemini
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Country mapping based on https://serpapi.com/apple-regions
 # Maps both country codes and country names (case-insensitive) to country codes
@@ -362,17 +362,22 @@ async def scrape_reddit(topic: str, keywords: list) -> dict:
 async def analyze_sentiment_with_gemini(all_results: list) -> dict:
     """
     Analyze sentiment of combined scraped data from all sources using Gemini API.
+    Focuses on identifying pain points and actionable insights for app developers.
     
     Args:
         all_results: List of dictionaries containing scraped data from all sources
     
     Returns:
-        Dictionary containing combined sentiment analysis results
+        Dictionary containing combined sentiment analysis results with pain points
     """
     print(f"\n[Gemini] Starting combined sentiment analysis for {len(all_results)} source(s)")
     
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        # Use gemini-1.5-pro or gemini-pro based on availability
+        try:
+            model = genai.GenerativeModel('gemini-1.5-pro')
+        except:
+            model = genai.GenerativeModel('gemini-pro')
         
         # Filter out results with errors
         valid_results = [r for r in all_results if r and not r.get("error")]
@@ -383,7 +388,7 @@ async def analyze_sentiment_with_gemini(all_results: list) -> dict:
                 "sources": []
             }
         
-        # Build combined prompt with data from all sources
+        # Build combined prompt with data from all sources - PROCESS ALL REVIEWS
         combined_sections = []
         data_summary = {}
         
@@ -398,15 +403,18 @@ async def analyze_sentiment_with_gemini(all_results: list) -> dict:
                     section_content.append(f"Product ID: {data.get('product_id', 'N/A')}")
                     section_content.append(f"Platform: {data.get('platform', 'N/A')}")
                     section_content.append(f"Total Reviews: {len(reviews)}")
-                    section_content.append("\nSample Reviews (first 50):")
-                    for r in reviews[:50]:
+                    section_content.append("\nAll Reviews:")
+                    # Process ALL reviews, not just first 50
+                    for r in reviews:
                         rating = r.get('rating', 'N/A')
                         snippet = r.get('snippet', '')
-                        section_content.append(f"Rating: {rating}/5 - {snippet}")
+                        likes = r.get('likes', 0)
+                        date = r.get('iso_date', 'N/A')
+                        section_content.append(f"Rating: {rating}/5 | Likes: {likes} | Date: {date} | Review: {snippet}")
                     
                     data_summary["google_play_store"] = {
                         "total_reviews": len(reviews),
-                        "analyzed_reviews": min(50, len(reviews))
+                        "analyzed_reviews": len(reviews)
                     }
             
             elif source == "apple_app_store":
@@ -416,16 +424,19 @@ async def analyze_sentiment_with_gemini(all_results: list) -> dict:
                     section_content.append(f"Product ID: {data.get('product_id', 'N/A')}")
                     section_content.append(f"Country: {data.get('country', 'N/A')}")
                     section_content.append(f"Total Reviews: {len(reviews)}")
-                    section_content.append("\nSample Reviews (first 50):")
-                    for r in reviews[:50]:
+                    section_content.append("\nAll Reviews:")
+                    # Process ALL reviews, not just first 50
+                    for r in reviews:
                         rating = r.get('rating', 'N/A')
                         title = r.get('title', '')
                         text = r.get('text', '')
-                        section_content.append(f"Rating: {rating}/5 - Title: {title} - Review: {text}")
+                        date = r.get('review_date', 'N/A')
+                        version = r.get('reviewed_version', 'N/A')
+                        section_content.append(f"Rating: {rating}/5 | Version: {version} | Date: {date} | Title: {title} | Review: {text}")
                     
                     data_summary["apple_app_store"] = {
                         "total_reviews": len(reviews),
-                        "analyzed_reviews": min(50, len(reviews))
+                        "analyzed_reviews": len(reviews)
                     }
             
             elif source == "reddit":
@@ -439,18 +450,19 @@ async def analyze_sentiment_with_gemini(all_results: list) -> dict:
                     for subreddit_data in reddit_data:
                         for topic in subreddit_data.get("found_topics", []):
                             all_text.append(f"Topic: {topic.get('title', '')}")
-                        for discussion in subreddit_data.get("discussions", [])[:20]:
+                        # Process ALL discussions, not just first 20
+                        for discussion in subreddit_data.get("discussions", []):
                             all_text.append(f"Discussion: {discussion.get('title', '')}")
                     
                     section_content.append(f"\nTotal Topics: {data.get('total_topics', 0)}")
                     section_content.append(f"Total Discussions: {data.get('total_discussions', 0)}")
-                    section_content.append("\nSample Content (first 100 items):")
-                    section_content.extend(all_text[:100])
+                    section_content.append("\nAll Content:")
+                    section_content.extend(all_text)
                     
                     data_summary["reddit"] = {
                         "total_topics": data.get("total_topics", 0),
                         "total_discussions": data.get("total_discussions", 0),
-                        "analyzed_items": min(100, len(all_text))
+                        "analyzed_items": len(all_text)
                     }
             
             if section_content:
@@ -462,38 +474,94 @@ async def analyze_sentiment_with_gemini(all_results: list) -> dict:
                 "sources": [r.get("source") for r in valid_results]
             }
         
-        # Create combined prompt
+        # Create combined prompt focused on pain points
         combined_text = "\n\n".join(combined_sections)
         
-        prompt = f"""Analyze the sentiment of the following combined data from multiple sources (Google Play Store, Apple App Store, and/or Reddit).
+        # Estimate token count (rough: 1 token ≈ 4 characters)
+        estimated_tokens = len(combined_text) // 4
+        print(f"[Gemini] Estimated input tokens: ~{estimated_tokens}")
+        
+        # If data is too large, use batch processing or summarization
+        MAX_TOKENS_PER_REQUEST = 1000000  # Gemini 1.5 Pro supports up to 2M tokens, but we'll be conservative
+        
+        if estimated_tokens > MAX_TOKENS_PER_REQUEST:
+            print(f"[Gemini] Large dataset detected. Using batch processing...")
+            return await _analyze_sentiment_batch_processing(model, valid_results, combined_sections, data_summary)
+        
+        prompt = f"""You are an expert app analyst. Analyze the following user reviews and discussions from multiple sources (Google Play Store, Apple App Store, and/or Reddit) to identify pain points and provide actionable insights for app developers.
 
-Provide a comprehensive sentiment analysis that includes:
+CRITICAL: You must respond with VALID JSON only. No markdown, no code blocks, just pure JSON.
 
-1. OVERALL COMBINED SENTIMENT: 
-   - Overall sentiment across all sources (positive/negative/neutral)
-   - Sentiment distribution (percentage of positive, negative, neutral)
+Analyze ALL the reviews and provide a comprehensive analysis in the following JSON structure:
 
-2. SOURCE-SPECIFIC ANALYSIS:
-   - For each source present, provide:
-     * Sentiment breakdown
-     * Key positive points
-     * Key negative points
-     * Common themes
+{{
+  "overall_sentiment": {{
+    "positive_percentage": <number>,
+    "negative_percentage": <number>,
+    "neutral_percentage": <number>,
+    "average_rating": <number>,
+    "total_reviews_analyzed": <number>
+  }},
+  "pain_points": [
+    {{
+      "category": "<bug|performance|ux|feature_request|pricing|content|other>",
+      "issue": "<specific problem description>",
+      "frequency": <number of times mentioned>,
+      "severity": "<high|medium|low>",
+      "sample_reviews": ["<review text 1>", "<review text 2>", "<review text 3>"],
+      "recommendation": "<specific actionable step to fix this issue>",
+      "priority_score": <number 1-10, higher = more urgent>
+    }}
+  ],
+  "positive_feedback": [
+    {{
+      "theme": "<what users love>",
+      "frequency": <number>,
+      "sample_reviews": ["<review text 1>", "<review text 2>"]
+    }}
+  ],
+  "source_comparison": {{
+    "google_play_store": {{
+      "sentiment_breakdown": {{"positive": <number>, "negative": <number>, "neutral": <number>}},
+      "top_issues": ["<issue 1>", "<issue 2>", "<issue 3>"]
+    }},
+    "apple_app_store": {{
+      "sentiment_breakdown": {{"positive": <number>, "negative": <number>, "neutral": <number>}},
+      "top_issues": ["<issue 1>", "<issue 2>", "<issue 3>"]
+    }},
+    "reddit": {{
+      "sentiment_breakdown": {{"positive": <number>, "negative": <number>, "neutral": <number>}},
+      "top_issues": ["<issue 1>", "<issue 2>", "<issue 3>"]
+    }}
+  }},
+  "priority_actions": [
+    {{
+      "action": "<specific action to take>",
+      "reason": "<why this is important>",
+      "expected_impact": "<high|medium|low>",
+      "effort_required": "<high|medium|low>"
+    }}
+  ],
+  "key_insights": [
+    "<insight 1>",
+    "<insight 2>",
+    "<insight 3>"
+  ]
+}}
 
-3. CROSS-SOURCE INSIGHTS:
-   - Compare sentiment patterns across different sources
-   - Identify common themes that appear across multiple sources
-   - Highlight any conflicting sentiments between sources
-
-4. SUMMARY AND RECOMMENDATIONS:
-   - Overall assessment
-   - Key takeaways
-   - Actionable insights
+INSTRUCTIONS:
+1. Analyze EVERY review provided (not just samples)
+2. Identify ALL pain points mentioned, categorize them, and count frequency
+3. Prioritize pain points by frequency and severity (high severity = crashes, data loss, security issues)
+4. Provide SPECIFIC, ACTIONABLE recommendations for each pain point
+5. Identify what users love (positive feedback) to maintain/improve
+6. Compare sentiment across different sources
+7. Rank priority actions by impact vs effort (quick wins first)
 
 DATA FROM ALL SOURCES:
 {combined_text}
 
-Please provide a detailed, structured analysis covering all the above points."""
+Remember: Respond with VALID JSON only. No markdown formatting, no code blocks."""
         
         # Run async call to Gemini
         loop = asyncio.get_event_loop()
@@ -502,23 +570,284 @@ Please provide a detailed, structured analysis covering all the above points."""
             lambda: model.generate_content(prompt)
         )
         
-        analysis_text = response.text
+        analysis_text = response.text.strip()
         
-        sources_analyzed = [r.get("source") for r in valid_results]
-        print(f"[Gemini] Combined sentiment analysis completed for sources: {', '.join(sources_analyzed)}")
-        
-        return {
-            "sources": sources_analyzed,
-            "sentiment_analysis": analysis_text,
-            "data_summary": data_summary
-        }
+        # Try to parse JSON from response (remove markdown code blocks if present)
+        try:
+            # Remove markdown code blocks if present
+            if analysis_text.startswith("```json"):
+                analysis_text = analysis_text[7:]  # Remove ```json
+            elif analysis_text.startswith("```"):
+                analysis_text = analysis_text[3:]   # Remove ```
+            
+            if analysis_text.endswith("```"):
+                analysis_text = analysis_text[:-3]  # Remove closing ```
+            
+            analysis_text = analysis_text.strip()
+            
+            # Parse JSON
+            analysis_json = json.loads(analysis_text)
+            
+            sources_analyzed = [r.get("source") for r in valid_results]
+            print(f"[Gemini] Combined sentiment analysis completed for sources: {', '.join(sources_analyzed)}")
+            
+            return {
+                "sources": sources_analyzed,
+                "sentiment_analysis": analysis_json,
+                "data_summary": data_summary,
+                "raw_response": analysis_text  # Keep raw for debugging
+            }
+        except json.JSONDecodeError as e:
+            print(f"[Gemini] Warning: Could not parse JSON response. Returning text format. Error: {e}")
+            print(f"[Gemini] First 500 chars of response: {analysis_text[:500]}")
+            # Return text format as fallback
+            sources_analyzed = [r.get("source") for r in valid_results]
+            return {
+                "sources": sources_analyzed,
+                "sentiment_analysis": {"text": analysis_text},
+                "data_summary": data_summary,
+                "parse_error": str(e)
+            }
     
     except Exception as e:
         print(f"[Gemini] Error during sentiment analysis: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "error": str(e),
             "sources": [r.get("source") for r in all_results if r and not r.get("error")]
         }
+
+
+async def _analyze_sentiment_batch_processing(model, valid_results: list, combined_sections: list, data_summary: dict) -> dict:
+    """
+    Handle large datasets by processing in batches based on token limits.
+    Uses combined_sections directly (already formatted text from all sources).
+    
+    Args:
+        model: Gemini model instance
+        valid_results: List of valid result dictionaries
+        combined_sections: List of section content strings (already formatted)
+        data_summary: Dictionary with data summary
+    
+    Returns:
+        Dictionary containing aggregated sentiment analysis results
+    """
+    print(f"[Gemini] Processing large dataset in batches (using combined text from all sources)...")
+    
+    # Combine all sections into one text
+    combined_text = "\n\n".join(combined_sections)
+    total_size = len(combined_text)
+    print(f"[Gemini] Total text size: {total_size:,} characters (~{total_size // 4:,} tokens)")
+    
+    # Split into chunks based on token limits
+    # Rough estimate: 1 token ≈ 4 characters, target ~800k tokens per batch (conservative)
+    MAX_CHARS_PER_BATCH = 3200000  # ~800k tokens
+    batch_results = []
+    
+    # Split combined_text into chunks
+    batch_num = 1
+    start_idx = 0
+    
+    while start_idx < total_size:
+        end_idx = min(start_idx + MAX_CHARS_PER_BATCH, total_size)
+        batch_text = combined_text[start_idx:end_idx]
+        
+        # Try to split at a section boundary (double newline) to avoid cutting mid-review
+        if end_idx < total_size:
+            # Look for the last section separator in this chunk
+            last_section_sep = batch_text.rfind("\n\n")
+            if last_section_sep > MAX_CHARS_PER_BATCH * 0.8:  # Only if we're not too close to start
+                batch_text = batch_text[:last_section_sep]
+                end_idx = start_idx + last_section_sep + 2
+        
+        batch_info = f"Batch {batch_num} (characters {start_idx:,} to {end_idx:,} of {total_size:,})"
+        
+        prompt = f"""You are an expert app analyst. Analyze these user reviews and discussions from multiple sources to identify pain points. Respond with VALID JSON only.
+
+{{
+  "pain_points": [{{"category": "<bug|performance|ux|feature_request|pricing|content|other>", "issue": "<description>", "frequency": <number>}}],
+  "positive_feedback": [{{"theme": "<description>", "frequency": <number>}}],
+  "sentiment_breakdown": {{"positive": <number>, "negative": <number>, "neutral": <number>}}
+}}
+
+{batch_info}:
+{batch_text}"""
+        
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: model.generate_content(prompt)
+            )
+            response_text = response.text.strip()
+            
+            # Clean JSON response
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            elif response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+            
+            batch_result = json.loads(response_text)
+            batch_result["batch_info"] = batch_info
+            batch_result["chars_processed"] = len(batch_text)
+            batch_results.append(batch_result)
+            print(f"[Gemini] Processed batch {batch_num} ({len(batch_text):,} characters)")
+            
+            # Move to next batch
+            start_idx = end_idx
+            batch_num += 1
+        except Exception as e:
+            print(f"[Gemini] Error processing batch {batch_num}: {e}")
+            import traceback
+            traceback.print_exc()
+            # Skip this batch and continue
+            start_idx = end_idx
+            batch_num += 1
+    
+    # Aggregate batch results intelligently
+    aggregated = _aggregate_batch_results(batch_results, valid_results, data_summary)
+    
+    return aggregated
+
+
+def _aggregate_batch_results(batch_results: list, valid_results: list, data_summary: dict) -> dict:
+    """
+    Aggregate results from multiple batches into a unified analysis.
+    
+    Args:
+        batch_results: List of batch analysis results
+        valid_results: Original valid results
+        data_summary: Data summary dictionary
+    
+    Returns:
+        Aggregated sentiment analysis dictionary
+    """
+    # Aggregate pain points (merge by issue, sum frequencies)
+    pain_points_map = {}
+    for batch in batch_results:
+        for pp in batch.get("pain_points", []):
+            issue = pp.get("issue", "").lower().strip()
+            if issue:
+                if issue not in pain_points_map:
+                    pain_points_map[issue] = {
+                        "category": pp.get("category", "other"),
+                        "issue": pp.get("issue", ""),
+                        "frequency": 0,
+                        "severity": pp.get("severity", "medium"),
+                        "sample_reviews": [],
+                        "priority_score": 0
+                    }
+                pain_points_map[issue]["frequency"] += pp.get("frequency", 1)
+                # Keep first 3 sample reviews
+                if len(pain_points_map[issue]["sample_reviews"]) < 3:
+                    pain_points_map[issue]["sample_reviews"].extend(pp.get("sample_reviews", [])[:3])
+    
+    # Convert to list and calculate priority scores
+    pain_points = []
+    for pp in pain_points_map.values():
+        # Priority = frequency * severity_multiplier
+        severity_mult = {"high": 3, "medium": 2, "low": 1}.get(pp["severity"], 1)
+        pp["priority_score"] = min(10, pp["frequency"] * severity_mult // 5)
+        pain_points.append(pp)
+    
+    # Sort by priority
+    pain_points.sort(key=lambda x: x["priority_score"], reverse=True)
+    
+    # Aggregate positive feedback
+    positive_feedback_map = {}
+    for batch in batch_results:
+        for pf in batch.get("positive_feedback", []):
+            theme = pf.get("theme", "").lower().strip()
+            if theme:
+                if theme not in positive_feedback_map:
+                    positive_feedback_map[theme] = {
+                        "theme": pf.get("theme", ""),
+                        "frequency": 0,
+                        "sample_reviews": []
+                    }
+                positive_feedback_map[theme]["frequency"] += pf.get("frequency", 1)
+                if len(positive_feedback_map[theme]["sample_reviews"]) < 3:
+                    positive_feedback_map[theme]["sample_reviews"].extend(pf.get("sample_reviews", [])[:3])
+    
+    positive_feedback = sorted(positive_feedback_map.values(), key=lambda x: x["frequency"], reverse=True)
+    
+    # Aggregate sentiment breakdown
+    total_positive = sum(b.get("sentiment_breakdown", {}).get("positive", 0) for b in batch_results)
+    total_negative = sum(b.get("sentiment_breakdown", {}).get("negative", 0) for b in batch_results)
+    total_neutral = sum(b.get("sentiment_breakdown", {}).get("neutral", 0) for b in batch_results)
+    total_sentiment = total_positive + total_negative + total_neutral
+    
+    if total_sentiment > 0:
+        positive_pct = (total_positive / total_sentiment) * 100
+        negative_pct = (total_negative / total_sentiment) * 100
+        neutral_pct = (total_neutral / total_sentiment) * 100
+    else:
+        positive_pct = negative_pct = neutral_pct = 0
+    
+    # Calculate average rating from reviews with ratings
+    ratings = []
+    for data in valid_results:
+        if data.get("source") == "google_play_store":
+            for r in data.get("reviews", []):
+                rating = r.get("rating")
+                if rating:
+                    ratings.append(float(rating))
+        elif data.get("source") == "apple_app_store":
+            for r in data.get("reviews", []):
+                rating = r.get("rating")
+                if rating:
+                    ratings.append(float(rating))
+    
+    avg_rating = sum(ratings) / len(ratings) if ratings else 0
+    
+    # Calculate total reviews analyzed from data_summary
+    total_reviews = 0
+    for source, stats in data_summary.items():
+        if "analyzed_reviews" in stats:
+            total_reviews += stats.get("analyzed_reviews", 0)
+        elif "analyzed_items" in stats:
+            total_reviews += stats.get("analyzed_items", 0)
+    
+    # Build aggregated result
+    aggregated_analysis = {
+        "overall_sentiment": {
+            "positive_percentage": round(positive_pct, 1),
+            "negative_percentage": round(negative_pct, 1),
+            "neutral_percentage": round(neutral_pct, 1),
+            "average_rating": round(avg_rating, 2),
+            "total_reviews_analyzed": total_reviews
+        },
+        "pain_points": pain_points[:20],  # Top 20
+        "positive_feedback": positive_feedback[:10],  # Top 10
+        "source_comparison": {
+            # Can be enhanced to track per-source breakdown
+        },
+        "priority_actions": [
+            {
+                "action": f"Fix: {pp['issue']}",
+                "reason": f"High frequency ({pp['frequency']} mentions) and {pp['severity']} severity",
+                "expected_impact": "high" if pp["severity"] == "high" else "medium",
+                "effort_required": "medium"
+            }
+            for pp in pain_points[:5]
+        ],
+        "key_insights": [
+            f"Top pain point: {pain_points[0]['issue']} ({pain_points[0]['frequency']} mentions)" if pain_points else "No major pain points identified",
+            f"Most loved feature: {positive_feedback[0]['theme']} ({positive_feedback[0]['frequency']} mentions)" if positive_feedback else "Limited positive feedback",
+            f"Overall sentiment: {round(positive_pct, 1)}% positive, {round(negative_pct, 1)}% negative"
+        ]
+    }
+    
+    return {
+        "sources": [r.get("source") for r in valid_results],
+        "sentiment_analysis": aggregated_analysis,
+        "data_summary": data_summary,
+        "note": f"Results processed in {len(batch_results)} batches (combined all sources)"
+    }
 
 
 # ============================================================================
@@ -609,43 +938,108 @@ async def main():
         print(f"{'=' * 60}")
         
         # Save JSON results to file for testing
-        # output_filename = "scraped_data.json"
-        # with open(output_filename, "w", encoding="utf-8") as f:
-        #     json.dump(valid_results, f, indent=2, ensure_ascii=False)
-        # print(f"\nScraped data saved to {output_filename}")
-        # print(f"Total sources: {len(valid_results)}")
+        output_filename = "scraped_data.json"
+        with open(output_filename, "w", encoding="utf-8") as f:
+            json.dump(valid_results, f, indent=2, ensure_ascii=False)
+        print(f"\nScraped data saved to {output_filename}")
+        print(f"Total sources: {len(valid_results)}")
         
-        # Commented out Gemini API call for testing
-        # print(f"Combining results for sentiment analysis...")
-        # sentiment_result = await analyze_sentiment_with_gemini(valid_results)
-        # 
-        # # Display combined results
-        # print(f"\n{'=' * 60}")
-        # print("COMBINED SENTIMENT ANALYSIS RESULTS")
-        # print(f"{'=' * 60}\n")
-        # 
-        # if sentiment_result.get("error"):
-        #     print(f"Error in sentiment analysis: {sentiment_result['error']}\n")
-        # else:
-        #     sources = sentiment_result.get("sources", [])
-        #     print(f"Sources analyzed: {', '.join([s.replace('_', ' ').title() for s in sources])}\n")
-        #     print("-" * 60)
-        #     print(sentiment_result.get("sentiment_analysis", "No analysis available"))
-        #     print("-" * 60)
-        #     
-        #     # Display data summary
-        #     summary = sentiment_result.get("data_summary", {})
-        #     if summary:
-        #         print("\nData Summary:")
-        #         for source, stats in summary.items():
-        #             source_name = source.replace("_", " ").title()
-        #             if "reviews" in stats:
-        #                 print(f"  {source_name}: {stats.get('analyzed_reviews', 0)} reviews analyzed out of {stats.get('total_reviews', 0)} total")
-        #             elif "topics" in stats or "discussions" in stats:
-        #                 analyzed = stats.get("analyzed_items", 0)
-        #                 total = (stats.get("total_topics", 0) + stats.get("total_discussions", 0))
-        #                 print(f"  {source_name}: {analyzed} items analyzed out of {total} total")
-        #         print()
+        # Run Gemini API sentiment analysis
+        print(f"\nCombining results for sentiment analysis...")
+        sentiment_result = await analyze_sentiment_with_gemini(valid_results)
+        
+        # Display combined results
+        print(f"\n{'=' * 60}")
+        print("COMBINED SENTIMENT ANALYSIS RESULTS")
+        print(f"{'=' * 60}\n")
+        
+        if sentiment_result.get("error"):
+            print(f"Error in sentiment analysis: {sentiment_result['error']}\n")
+        else:
+            sources = sentiment_result.get("sources", [])
+            print(f"Sources analyzed: {', '.join([s.replace('_', ' ').title() for s in sources])}\n")
+            
+            # Display structured analysis
+            analysis = sentiment_result.get("sentiment_analysis", {})
+            
+            if isinstance(analysis, dict) and "overall_sentiment" in analysis:
+                # Structured JSON output
+                print("=" * 60)
+                print("OVERALL SENTIMENT")
+                print("=" * 60)
+                overall = analysis.get("overall_sentiment", {})
+                print(f"Positive: {overall.get('positive_percentage', 0):.1f}%")
+                print(f"Negative: {overall.get('negative_percentage', 0):.1f}%")
+                print(f"Neutral: {overall.get('neutral_percentage', 0):.1f}%")
+                print(f"Average Rating: {overall.get('average_rating', 0):.2f}/5")
+                print(f"Total Reviews Analyzed: {overall.get('total_reviews_analyzed', 0)}")
+                
+                # Pain Points
+                pain_points = analysis.get("pain_points", [])
+                if pain_points:
+                    print(f"\n{'=' * 60}")
+                    print(f"PAIN POINTS ({len(pain_points)} identified)")
+                    print("=" * 60)
+                    for i, pp in enumerate(pain_points[:10], 1):  # Show top 10
+                        print(f"\n{i}. [{pp.get('category', 'unknown').upper()}] {pp.get('issue', 'N/A')}")
+                        print(f"   Frequency: {pp.get('frequency', 0)} mentions | Severity: {pp.get('severity', 'N/A')} | Priority: {pp.get('priority_score', 0)}/10")
+                        print(f"   Recommendation: {pp.get('recommendation', 'N/A')}")
+                
+                # Priority Actions
+                priority_actions = analysis.get("priority_actions", [])
+                if priority_actions:
+                    print(f"\n{'=' * 60}")
+                    print("PRIORITY ACTIONS")
+                    print("=" * 60)
+                    for i, action in enumerate(priority_actions[:5], 1):  # Show top 5
+                        print(f"\n{i}. {action.get('action', 'N/A')}")
+                        print(f"   Impact: {action.get('expected_impact', 'N/A')} | Effort: {action.get('effort_required', 'N/A')}")
+                        print(f"   Reason: {action.get('reason', 'N/A')}")
+                
+                # Positive Feedback
+                positive_feedback = analysis.get("positive_feedback", [])
+                if positive_feedback:
+                    print(f"\n{'=' * 60}")
+                    print("POSITIVE FEEDBACK")
+                    print("=" * 60)
+                    for i, feedback in enumerate(positive_feedback[:5], 1):  # Show top 5
+                        print(f"\n{i}. {feedback.get('theme', 'N/A')} (mentioned {feedback.get('frequency', 0)} times)")
+                
+                # Key Insights
+                insights = analysis.get("key_insights", [])
+                if insights:
+                    print(f"\n{'=' * 60}")
+                    print("KEY INSIGHTS")
+                    print("=" * 60)
+                    for i, insight in enumerate(insights, 1):
+                        print(f"{i}. {insight}")
+                
+                # Save structured analysis to file
+                analysis_filename = "sentiment_analysis.json"
+                with open(analysis_filename, "w", encoding="utf-8") as f:
+                    json.dump(sentiment_result, f, indent=2, ensure_ascii=False)
+                print(f"\n{'=' * 60}")
+                print(f"Full analysis saved to {analysis_filename}")
+                print("=" * 60)
+            else:
+                # Fallback to text display
+                print("-" * 60)
+                print(analysis if isinstance(analysis, str) else json.dumps(analysis, indent=2))
+                print("-" * 60)
+            
+            # Display data summary
+            summary = sentiment_result.get("data_summary", {})
+            if summary:
+                print("\nData Summary:")
+                for source, stats in summary.items():
+                    source_name = source.replace("_", " ").title()
+                    if "reviews" in stats:
+                        print(f"  {source_name}: {stats.get('analyzed_reviews', 0)} reviews analyzed out of {stats.get('total_reviews', 0)} total")
+                    elif "topics" in stats or "discussions" in stats:
+                        analyzed = stats.get("analyzed_items", 0)
+                        total = (stats.get("total_topics", 0) + stats.get("total_discussions", 0))
+                        print(f"  {source_name}: {analyzed} items analyzed out of {total} total")
+                print()
     else:
         print("\nNo valid results to analyze.")
     

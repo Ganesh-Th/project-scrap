@@ -234,7 +234,7 @@
 
 #         # FIX 1: Change sort to 'new'. 
 #         # 'relevance' sometimes hides older results or breaks pagination on old.reddit.
-#         current_url = f"{base_url}?q={keyword}&sort=new&t=month"
+#         current_url = f"{base_url}?q={keyword}&sort=relevance&t=month"
         
 #         keyword_results = []
 #         page_counter = 0

@@ -351,3 +351,34 @@
 
 # if __name__ == "__main__":
 #     main()
+
+
+
+### Google search working ###
+
+# from serpapi import GoogleSearch
+# import json
+# import os
+
+# API_KEY = os.getenv('SERPAPI_KEY')
+# if not API_KEY:
+#     raise RuntimeError("SERPAPI_KEY not set")
+
+# g_search = input("Enter the Product name: ")
+# full = f"{g_search}"+ " "+"Review" 
+
+# params = {
+#   "engine": "google",
+#   "q": full,
+#   "api_key": API_KEY
+# }
+
+# search = GoogleSearch(params)
+# results = search.get_dict()
+
+# organic_results = results["organic_results"]
+
+# with open("Google_search.json", "w", encoding="utf-8") as f:
+#     json.dump(organic_results, f, ensure_ascii=False, indent=2)
+
+# print("Saved reviews to Google_search.json")

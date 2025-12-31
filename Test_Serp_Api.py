@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import google.generativeai as genai
+from json_toon import json_to_toon
 
 # API Keys
 SERPAPI_KEY = os.getenv('SERPAPI_KEY')
@@ -357,6 +358,58 @@ async def scrape_reddit(topic: str, keywords: list) -> dict:
 
 
 # ============================================================================
+# Helper Function: Convert JSON to TOON Format
+# ============================================================================
+def convert_json_to_toon(valid_results: list) -> tuple[str, dict]:
+    """
+    Convert JSON review data to TOON format for efficient AI processing.
+    TOON format reduces token usage by 30-60% compared to JSON.
+    
+    Args:
+        valid_results: List of dictionaries containing scraped data from all sources
+    
+    Returns:
+        Tuple of (toon_text: str, data_summary: dict)
+    """
+    if not valid_results:
+        return "", {}
+    
+    try:
+        # Convert entire valid_results to TOON format
+        toon_text = json_to_toon(valid_results)
+        
+        # Build data_summary for tracking
+        data_summary = {}
+        for data in valid_results:
+            source = data.get("source", "unknown")
+            
+            if source == "google_play_store":
+                reviews = data.get("reviews", [])
+                data_summary[source] = {
+                    "total_reviews": len(reviews),
+                    "analyzed_reviews": len(reviews)
+                }
+            elif source == "apple_app_store":
+                reviews = data.get("reviews", [])
+                data_summary[source] = {
+                    "total_reviews": len(reviews),
+                    "analyzed_reviews": len(reviews)
+                }
+            elif source == "reddit":
+                data_summary[source] = {
+                    "total_topics": data.get("total_topics", 0),
+                    "total_discussions": data.get("total_discussions", 0),
+                    "analyzed_items": data.get("total_topics", 0) + data.get("total_discussions", 0)
+                }
+        
+        return toon_text, data_summary
+    except Exception as e:
+        print(f"[TOON] Error converting to TOON format: {e}")
+        # Fallback: return empty string and let caller handle
+        return "", {}
+
+
+# ============================================================================
 # Task 4: Gemini API Sentiment Analysis
 # ============================================================================
 async def analyze_sentiment_with_gemini(all_results: list) -> dict:
@@ -388,94 +441,17 @@ async def analyze_sentiment_with_gemini(all_results: list) -> dict:
                 "sources": []
             }
         
-        # Build combined prompt with data from all sources - PROCESS ALL REVIEWS
-        combined_sections = []
-        data_summary = {}
+        # Convert JSON to TOON format (30-60% more token-efficient than JSON)
+        toon_text, data_summary = convert_json_to_toon(valid_results)
         
-        for data in valid_results:
-            source = data.get("source", "unknown")
-            section_content = []
-            
-            if source == "google_play_store":
-                reviews = data.get("reviews", [])
-                if reviews:
-                    section_content.append("=== GOOGLE PLAY STORE REVIEWS ===")
-                    section_content.append(f"Product ID: {data.get('product_id', 'N/A')}")
-                    section_content.append(f"Platform: {data.get('platform', 'N/A')}")
-                    section_content.append(f"Total Reviews: {len(reviews)}")
-                    section_content.append("\nAll Reviews:")
-                    # Process ALL reviews, not just first 50
-                    for r in reviews:
-                        rating = r.get('rating', 'N/A')
-                        snippet = r.get('snippet', '')
-                        likes = r.get('likes', 0)
-                        date = r.get('iso_date', 'N/A')
-                        section_content.append(f"Rating: {rating}/5 | Likes: {likes} | Date: {date} | Review: {snippet}")
-                    
-                    data_summary["google_play_store"] = {
-                        "total_reviews": len(reviews),
-                        "analyzed_reviews": len(reviews)
-                    }
-            
-            elif source == "apple_app_store":
-                reviews = data.get("reviews", [])
-                if reviews:
-                    section_content.append("\n=== APPLE APP STORE REVIEWS ===")
-                    section_content.append(f"Product ID: {data.get('product_id', 'N/A')}")
-                    section_content.append(f"Country: {data.get('country', 'N/A')}")
-                    section_content.append(f"Total Reviews: {len(reviews)}")
-                    section_content.append("\nAll Reviews:")
-                    # Process ALL reviews, not just first 50
-                    for r in reviews:
-                        rating = r.get('rating', 'N/A')
-                        title = r.get('title', '')
-                        text = r.get('text', '')
-                        date = r.get('review_date', 'N/A')
-                        version = r.get('reviewed_version', 'N/A')
-                        section_content.append(f"Rating: {rating}/5 | Version: {version} | Date: {date} | Title: {title} | Review: {text}")
-                    
-                    data_summary["apple_app_store"] = {
-                        "total_reviews": len(reviews),
-                        "analyzed_reviews": len(reviews)
-                    }
-            
-            elif source == "reddit":
-                reddit_data = data.get("data", [])
-                if reddit_data:
-                    section_content.append("\n=== REDDIT DISCUSSIONS AND TOPICS ===")
-                    section_content.append(f"Subreddit: {data.get('topic', 'N/A')}")
-                    section_content.append(f"Keywords: {', '.join(data.get('keywords', []))}")
-                    
-                    all_text = []
-                    for subreddit_data in reddit_data:
-                        for topic in subreddit_data.get("found_topics", []):
-                            all_text.append(f"Topic: {topic.get('title', '')}")
-                        # Process ALL discussions, not just first 20
-                        for discussion in subreddit_data.get("discussions", []):
-                            all_text.append(f"Discussion: {discussion.get('title', '')}")
-                    
-                    section_content.append(f"\nTotal Topics: {data.get('total_topics', 0)}")
-                    section_content.append(f"Total Discussions: {data.get('total_discussions', 0)}")
-                    section_content.append("\nAll Content:")
-                    section_content.extend(all_text)
-                    
-                    data_summary["reddit"] = {
-                        "total_topics": data.get("total_topics", 0),
-                        "total_discussions": data.get("total_discussions", 0),
-                        "analyzed_items": len(all_text)
-                    }
-            
-            if section_content:
-                combined_sections.append("\n".join(section_content))
-        
-        if not combined_sections:
+        if not toon_text:
             return {
                 "error": "No text data to analyze from any source",
                 "sources": [r.get("source") for r in valid_results]
             }
         
-        # Create combined prompt focused on pain points
-        combined_text = "\n\n".join(combined_sections)
+        # Use TOON text directly (already formatted efficiently)
+        combined_text = toon_text
         
         # Estimate token count (rough: 1 token ≈ 4 characters)
         estimated_tokens = len(combined_text) // 4
@@ -486,9 +462,11 @@ async def analyze_sentiment_with_gemini(all_results: list) -> dict:
         
         if estimated_tokens > MAX_TOKENS_PER_REQUEST:
             print(f"[Gemini] Large dataset detected. Using batch processing...")
-            return await _analyze_sentiment_batch_processing(model, valid_results, combined_sections, data_summary)
+            return await _analyze_sentiment_batch_processing(model, valid_results, toon_text, data_summary)
         
         prompt = f"""You are an expert app analyst. Analyze the following user reviews and discussions from multiple sources (Google Play Store, Apple App Store, and/or Reddit) to identify pain points and provide actionable insights for app developers.
+
+The data is provided in TOON (Token-Oriented Object Notation) format, which is a compact, token-efficient format. Parse the TOON structure to extract all reviews and discussions.
 
 CRITICAL: You must respond with VALID JSON only. No markdown, no code blocks, just pure JSON.
 
@@ -558,7 +536,7 @@ INSTRUCTIONS:
 6. Compare sentiment across different sources
 7. Rank priority actions by impact vs effort (quick wins first)
 
-DATA FROM ALL SOURCES:
+DATA FROM ALL SOURCES (in TOON format):
 {combined_text}
 
 Remember: Respond with VALID JSON only. No markdown formatting, no code blocks."""
@@ -619,26 +597,26 @@ Remember: Respond with VALID JSON only. No markdown formatting, no code blocks."
         }
 
 
-async def _analyze_sentiment_batch_processing(model, valid_results: list, combined_sections: list, data_summary: dict) -> dict:
+async def _analyze_sentiment_batch_processing(model, valid_results: list, toon_text: str, data_summary: dict) -> dict:
     """
     Handle large datasets by processing in batches based on token limits.
-    Uses combined_sections directly (already formatted text from all sources).
+    Uses TOON format text directly (already formatted efficiently from all sources).
     
     Args:
         model: Gemini model instance
         valid_results: List of valid result dictionaries
-        combined_sections: List of section content strings (already formatted)
+        toon_text: TOON format text (token-efficient format)
         data_summary: Dictionary with data summary
     
     Returns:
         Dictionary containing aggregated sentiment analysis results
     """
-    print(f"[Gemini] Processing large dataset in batches (using combined text from all sources)...")
+    print(f"[Gemini] Processing large dataset in batches (using TOON format from all sources)...")
     
-    # Combine all sections into one text
-    combined_text = "\n\n".join(combined_sections)
+    # Use TOON text directly
+    combined_text = toon_text
     total_size = len(combined_text)
-    print(f"[Gemini] Total text size: {total_size:,} characters (~{total_size // 4:,} tokens)")
+    print(f"[Gemini] Total TOON text size: {total_size:,} characters (~{total_size // 4:,} tokens)")
     
     # Split into chunks based on token limits
     # Rough estimate: 1 token ≈ 4 characters, target ~800k tokens per batch (conservative)
@@ -663,7 +641,7 @@ async def _analyze_sentiment_batch_processing(model, valid_results: list, combin
         
         batch_info = f"Batch {batch_num} (characters {start_idx:,} to {end_idx:,} of {total_size:,})"
         
-        prompt = f"""You are an expert app analyst. Analyze these user reviews and discussions from multiple sources to identify pain points. Respond with VALID JSON only.
+        prompt = f"""You are an expert app analyst. Analyze these user reviews and discussions from multiple sources to identify pain points. The data is in TOON (Token-Oriented Object Notation) format. Parse the TOON structure to extract reviews. Respond with VALID JSON only.
 
 {{
   "pain_points": [{{"category": "<bug|performance|ux|feature_request|pricing|content|other>", "issue": "<description>", "frequency": <number>}}],
@@ -671,7 +649,7 @@ async def _analyze_sentiment_batch_processing(model, valid_results: list, combin
   "sentiment_breakdown": {{"positive": <number>, "negative": <number>, "neutral": <number>}}
 }}
 
-{batch_info}:
+{batch_info} (TOON format):
 {batch_text}"""
         
         try:

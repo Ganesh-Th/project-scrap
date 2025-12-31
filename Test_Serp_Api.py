@@ -7,7 +7,6 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import google.generativeai as genai
-from json_toon import json_to_toon
 
 # API Keys
 SERPAPI_KEY = os.getenv('SERPAPI_KEY')
@@ -124,7 +123,7 @@ def get_country_code(user_input: str) -> str:
 # ============================================================================
 # Task 1: Google Play Store Reviews Scraper
 # ============================================================================
-async def scrape_google_play_reviews(product_id: str, platform: str) -> dict:
+async def scrape_google_play_reviews(product_id: str, platform: str) -> tuple:
     """
     Scrape Google Play Store reviews.
     
@@ -133,7 +132,12 @@ async def scrape_google_play_reviews(product_id: str, platform: str) -> dict:
         platform: Platform type (phone/tablet/tv/wearables/auto/chromebook)
     
     Returns:
-        Dictionary containing reviews data
+        tuple: (source, product_id, platform, reviews_json, total_reviews)
+            - source: "google_play_store"
+            - product_id: The product ID
+            - platform: The platform type
+            - reviews_json: List of review dictionaries (to be converted to TOON)
+            - total_reviews: Number of reviews fetched
     """
     print(f"\n[Google Play Store] Starting scrape for product: {product_id}, platform: {platform}")
     
@@ -156,34 +160,28 @@ async def scrape_google_play_reviews(product_id: str, platform: str) -> dict:
         
         print(f"[Google Play Store] Successfully fetched {len(reviews)} reviews")
         
-        # Commented out JSON file saving
-        # with open("Google_reviews.json", "w", encoding="utf-8") as f:
-        #     json.dump(reviews, f, ensure_ascii=False, indent=2)
-        # print("Saved reviews to Google_reviews.json")
-        
-        return {
-            "source": "google_play_store",
-            "product_id": product_id,
-            "platform": platform,
-            "reviews": reviews,
-            "total_reviews": len(reviews)
-        }
+        return (
+            "google_play_store",
+            product_id,
+            platform,
+            reviews,
+            len(reviews)
+        )
     except Exception as e:
         print(f"[Google Play Store] Error: {e}")
-        return {
-            "source": "google_play_store",
-            "product_id": product_id,
-            "platform": platform,
-            "reviews": [],
-            "total_reviews": 0,
-            "error": str(e)
-        }
+        return (
+            "google_play_store",
+            product_id,
+            platform,
+            [],
+            0
+        )
 
 
 # ============================================================================
 # Task 2: Apple App Store Reviews Scraper
 # ============================================================================
-async def scrape_apple_store_reviews(product_id: str, country: str, target_reviews: int = 199) -> dict:
+async def scrape_apple_store_reviews(product_id: str, country: str, target_reviews: int = 199) -> tuple:
     """
     Scrape Apple App Store reviews.
     
@@ -193,7 +191,12 @@ async def scrape_apple_store_reviews(product_id: str, country: str, target_revie
         target_reviews: Target number of reviews to fetch (default: 199)
     
     Returns:
-        Dictionary containing reviews data
+        tuple: (source, product_id, country, reviews_json, total_reviews)
+            - source: "apple_app_store"
+            - product_id: The product ID
+            - country: The country code
+            - reviews_json: List of review dictionaries (to be converted to TOON)
+            - total_reviews: Number of reviews fetched
     """
     print(f"\n[Apple App Store] Starting scrape for product: {product_id}, country: {country}")
     
@@ -231,34 +234,28 @@ async def scrape_apple_store_reviews(product_id: str, country: str, target_revie
         
         print(f"[Apple App Store] Successfully fetched {len(all_reviews)} reviews")
         
-        # Commented out JSON file saving
-        # with open("apple_reviews.json", "w", encoding="utf-8") as f:
-        #     json.dump(all_reviews, f, ensure_ascii=False, indent=2)
-        # print(f"Successfully saved {len(all_reviews)} reviews to apple_reviews.json")
-        
-        return {
-            "source": "apple_app_store",
-            "product_id": product_id,
-            "country": country,
-            "reviews": all_reviews,
-            "total_reviews": len(all_reviews)
-        }
+        return (
+            "apple_app_store",
+            product_id,
+            country,
+            all_reviews,
+            len(all_reviews)
+        )
     except Exception as e:
         print(f"[Apple App Store] Error: {e}")
-        return {
-            "source": "apple_app_store",
-            "product_id": product_id,
-            "country": country,
-            "reviews": [],
-            "total_reviews": 0,
-            "error": str(e)
-        }
+        return (
+            "apple_app_store",
+            product_id,
+            country,
+            [],
+            0
+        )
 
 
 # ============================================================================
 # Task 3: Reddit Scraper
 # ============================================================================
-async def scrape_reddit(topic: str, keywords: list) -> dict:
+async def scrape_reddit(topic: str, keywords: list) -> tuple:
     """
     Scrape Reddit subreddit for topics and discussions.
     
@@ -267,7 +264,12 @@ async def scrape_reddit(topic: str, keywords: list) -> dict:
         keywords: List of keywords to filter for
     
     Returns:
-        Dictionary containing scraped Reddit data
+        tuple: (source, topic, keywords, discussions_json, total_discussions)
+            - source: "reddit"
+            - topic: The subreddit topic
+            - keywords: List of keywords used
+            - discussions_json: Flattened list of discussion dictionaries (to be converted to TOON)
+            - total_discussions: Number of discussions scraped
     """
     print(f"\n[Reddit] Starting scrape for topic: {topic}, keywords: {keywords}")
     
@@ -293,23 +295,7 @@ async def scrape_reddit(topic: str, keywords: list) -> dict:
             
             soup = BeautifulSoup(response.content, "html.parser")
             
-            subreddit_data = {
-                "subreddit_name": subreddit_name,
-                "url": url,
-                "title": soup.title.string if (soup.title and soup.title.string) else "No title",
-                "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            topics = []
-            for heading in soup.find_all(["h1", "h2", "h3", "h4"]):
-                text = heading.get_text(strip=True)
-                
-                if text and len(text) > 3:
-                    if any(k in text.lower() for k in keywords):
-                        topics.append({
-                            "title": text,
-                            "type": f"{topic}_topic"
-                        })
+            scraped_at = time.strftime("%Y-%m-%d %H:%M:%S")
             
             discussions = []
             seen_urls = set()
@@ -322,147 +308,215 @@ async def scrape_reddit(topic: str, keywords: list) -> dict:
                     seen_urls.add(href)
                     full_url = urljoin(base_reddit_url, href)
                     
+                    # Include subreddit_name and scraped_at in each discussion
                     discussions.append({
+                        "subreddit_name": subreddit_name,
                         "title": text[:100] + " ... " if len(text) > 100 else text,
                         "url": full_url,
-                        "type": "discussion"
+                        "type": "discussion",
+                        "scraped_at": scraped_at
                     })
             
-            subreddit_data["found_topics"] = topics
-            subreddit_data["discussions"] = discussions
-            
-            all_data.append(subreddit_data)
+            all_data.extend(discussions)
             await asyncio.sleep(2)  # Use asyncio.sleep instead of time.sleep for async
         
         except Exception as e:
             print(f'[Reddit] Error: {e}')
     
-    total_topics = sum(len(subreddit.get("found_topics", [])) for subreddit in all_data)
-    total_discussions = sum(len(subreddit.get("discussions", [])) for subreddit in all_data)
+    total_discussions = len(all_data)
     
-    print(f"[Reddit] Successfully scraped {total_topics} topics, {total_discussions} discussions")
+    print(f"[Reddit] Successfully scraped {total_discussions} discussions")
     
-    # Commented out JSON file saving
-    # with open("reddit.json", "w", encoding="utf-8") as file:
-    #     json.dump(all_data, file, indent=2, ensure_ascii=True)
-    # print(f'reddit.json is saved')
-    
-    return {
-        "source": "reddit",
-        "topic": topic,
-        "keywords": keywords,
-        "data": all_data,
-        "total_topics": total_topics,
-        "total_discussions": total_discussions
-    }
+    return (
+        "reddit",
+        topic,
+        keywords,
+        all_data,
+        total_discussions
+    )
 
 
 # ============================================================================
-# Helper Function: Convert JSON to TOON Format
+# Helper Function: Convert Reviews JSON to TOON Format
 # ============================================================================
-def convert_json_to_toon(valid_results: list) -> tuple[str, dict]:
+def convert_reviews_to_toon(reviews: list, source_type: str) -> str:
     """
-    Convert JSON review data to TOON format for efficient AI processing.
-    TOON format reduces token usage by 30-60% compared to JSON.
+    Convert reviews JSON list to TOON format.
     
     Args:
-        valid_results: List of dictionaries containing scraped data from all sources
+        reviews: List of review dictionaries
+        source_type: "google_play_store", "apple_app_store", or "reddit"
     
     Returns:
-        Tuple of (toon_text: str, data_summary: dict)
+        TOON formatted string with header and data rows
     """
-    if not valid_results:
+    if not reviews:
+        return ""
+    
+    if source_type == "google_play_store":
+        header = "review_id | rating | snippet | likes | iso_date"
+        rows = [header]
+        for review in reviews:
+            snippet = str(review.get("snippet", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
+            row = f"{review.get('id', '')} | {review.get('rating', '')} | {snippet} | {review.get('likes', '')} | {review.get('iso_date', '')}"
+            rows.append(row)
+        return "\n".join(rows)
+    
+    elif source_type == "apple_app_store":
+        header = "review_id | title | text | rating | review_date | reviewed_version"
+        rows = [header]
+        for review in reviews:
+            title = str(review.get("title", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
+            text = str(review.get("text", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
+            row = f"{review.get('id', '')} | {title} | {text} | {review.get('rating', '')} | {review.get('review_date', '')} | {review.get('reviewed_version', '')}"
+            rows.append(row)
+        return "\n".join(rows)
+    
+    elif source_type == "reddit":
+        header = "subreddit | title | url | type | scraped_at"
+        rows = [header]
+        for discussion in reviews:
+            title = str(discussion.get("title", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
+            row = f"{discussion.get('subreddit_name', '')} | {title} | {discussion.get('url', '')} | {discussion.get('type', '')} | {discussion.get('scraped_at', '')}"
+            rows.append(row)
+        return "\n".join(rows)
+    
+    return ""
+
+
+# ============================================================================
+# Helper Function: Build Combined Query for Gemini API
+# ============================================================================
+def build_gemini_query(scrape_results: list) -> tuple[str, dict]:
+    """
+    Build the combined query string for Gemini API.
+    Combines metadata and TOON-formatted reviews from all sources.
+    
+    Args:
+        scrape_results: List of tuples from scrape functions
+            - Google Play: (source, product_id, platform, reviews, total_reviews)
+            - Apple Store: (source, product_id, country, reviews, total_reviews)
+            - Reddit: (source, topic, keywords, discussions, total_discussions)
+    
+    Returns:
+        Tuple of (combined_query: str, data_summary: dict)
+    """
+    if not scrape_results:
         return "", {}
     
-    try:
-        # Convert entire valid_results to TOON format
-        toon_text = json_to_toon(valid_results)
+    sections = []
+    data_summary = {}
+    
+    for result in scrape_results:
+        source = result[0]
         
-        # Build data_summary for tracking
-        data_summary = {}
-        for data in valid_results:
-            source = data.get("source", "unknown")
+        if source == "google_play_store":
+            _, product_id, platform, reviews, total_reviews = result
+            reviews_toon = convert_reviews_to_toon(reviews, "google_play_store")
             
-            if source == "google_play_store":
-                reviews = data.get("reviews", [])
-                data_summary[source] = {
-                    "total_reviews": len(reviews),
-                    "analyzed_reviews": len(reviews)
-                }
-            elif source == "apple_app_store":
-                reviews = data.get("reviews", [])
-                data_summary[source] = {
-                    "total_reviews": len(reviews),
-                    "analyzed_reviews": len(reviews)
-                }
-            elif source == "reddit":
-                data_summary[source] = {
-                    "total_topics": data.get("total_topics", 0),
-                    "total_discussions": data.get("total_discussions", 0),
-                    "analyzed_items": data.get("total_topics", 0) + data.get("total_discussions", 0)
-                }
+            section = f"""=== GOOGLE PLAY STORE REVIEWS ===
+Source: {source}
+Product ID: {product_id}
+Platform: {platform}
+Total Reviews: {total_reviews}
+
+Reviews (TOON format):
+{reviews_toon}"""
+            sections.append(section)
+            
+            data_summary[source] = {
+                "total_reviews": total_reviews,
+                "analyzed_reviews": total_reviews
+            }
         
-        return toon_text, data_summary
-    except Exception as e:
-        print(f"[TOON] Error converting to TOON format: {e}")
-        # Fallback: return empty string and let caller handle
-        return "", {}
+        elif source == "apple_app_store":
+            _, product_id, country, reviews, total_reviews = result
+            reviews_toon = convert_reviews_to_toon(reviews, "apple_app_store")
+            
+            section = f"""=== APPLE APP STORE REVIEWS ===
+Source: {source}
+Product ID: {product_id}
+Country: {country}
+Total Reviews: {total_reviews}
+
+Reviews (TOON format):
+{reviews_toon}"""
+            sections.append(section)
+            
+            data_summary[source] = {
+                "total_reviews": total_reviews,
+                "analyzed_reviews": total_reviews
+            }
+        
+        elif source == "reddit":
+            _, topic, keywords, discussions, total_discussions = result
+            discussions_toon = convert_reviews_to_toon(discussions, "reddit")
+            
+            keywords_str = ', '.join(keywords) if keywords else ''
+            
+            section = f"""=== REDDIT DISCUSSIONS ===
+Source: {source}
+Topic: {topic}
+Keywords: {keywords_str}
+Total Discussions: {total_discussions}
+
+Discussions (TOON format):
+{discussions_toon}"""
+            sections.append(section)
+            
+            data_summary[source] = {
+                "total_discussions": total_discussions,
+                "analyzed_items": total_discussions
+            }
+    
+    combined_query = "\n\n".join(sections)
+    
+    return combined_query, data_summary
 
 
 # ============================================================================
 # Task 4: Gemini API Sentiment Analysis
 # ============================================================================
-async def analyze_sentiment_with_gemini(all_results: list) -> dict:
+async def analyze_sentiment_with_gemini(combined_query: str, data_summary: dict, scrape_results: list) -> dict:
     """
     Analyze sentiment of combined scraped data from all sources using Gemini API.
     Focuses on identifying pain points and actionable insights for app developers.
     
     Args:
-        all_results: List of dictionaries containing scraped data from all sources
+        combined_query: Combined query string with metadata and TOON-formatted reviews
+        data_summary: Dictionary containing summary of data from each source
+        scrape_results: List of tuples from scrape functions (for extracting ratings)
     
     Returns:
         Dictionary containing combined sentiment analysis results with pain points
     """
-    print(f"\n[Gemini] Starting combined sentiment analysis for {len(all_results)} source(s)")
+    # Identify sources from scrape_results
+    sources = [result[0] for result in scrape_results if result]
+    print(f"\n[Gemini] Starting combined sentiment analysis for {len(sources)} source(s)")
     
     try:
-        # Use gemini-1.5-pro or gemini-pro based on availability
-        try:
-            model = genai.GenerativeModel('gemini-1.5-pro')
-        except:
-            model = genai.GenerativeModel('gemini-pro')
+        # Use available Gemini models (gemini-2.5-flash-lite has highest rate limit: 10 RPM, 250K tokens)
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         
-        # Filter out results with errors
-        valid_results = [r for r in all_results if r and not r.get("error")]
-        
-        if not valid_results:
-            return {
-                "error": "No valid data to analyze",
-                "sources": []
-            }
-        
-        # Convert JSON to TOON format (30-60% more token-efficient than JSON)
-        toon_text, data_summary = convert_json_to_toon(valid_results)
-        
-        if not toon_text:
+        if not combined_query:
             return {
                 "error": "No text data to analyze from any source",
-                "sources": [r.get("source") for r in valid_results]
+                "sources": sources
             }
         
-        # Use TOON text directly (already formatted efficiently)
-        combined_text = toon_text
+        # Use combined_query directly (already formatted efficiently with metadata + TOON)
+        combined_text = combined_query
         
         # Estimate token count (rough: 1 token ≈ 4 characters)
         estimated_tokens = len(combined_text) // 4
         print(f"[Gemini] Estimated input tokens: ~{estimated_tokens}")
         
         # If data is too large, use batch processing or summarization
-        MAX_TOKENS_PER_REQUEST = 1000000  # Gemini 1.5 Pro supports up to 2M tokens, but we'll be conservative
+        MAX_TOKENS_PER_REQUEST = 200000  # gemini-2.5-flash-lite supports up to 250K tokens, being conservative
         
         if estimated_tokens > MAX_TOKENS_PER_REQUEST:
             print(f"[Gemini] Large dataset detected. Using batch processing...")
-            return await _analyze_sentiment_batch_processing(model, valid_results, toon_text, data_summary)
+            return await _analyze_sentiment_batch_processing(model, scrape_results, combined_text, data_summary)
         
         prompt = f"""You are an expert app analyst. Analyze the following user reviews and discussions from multiple sources (Google Play Store, Apple App Store, and/or Reddit) to identify pain points and provide actionable insights for app developers.
 
@@ -566,11 +620,10 @@ Remember: Respond with VALID JSON only. No markdown formatting, no code blocks."
             # Parse JSON
             analysis_json = json.loads(analysis_text)
             
-            sources_analyzed = [r.get("source") for r in valid_results]
-            print(f"[Gemini] Combined sentiment analysis completed for sources: {', '.join(sources_analyzed)}")
+            print(f"[Gemini] Combined sentiment analysis completed for sources: {', '.join(sources)}")
             
             return {
-                "sources": sources_analyzed,
+                "sources": sources,
                 "sentiment_analysis": analysis_json,
                 "data_summary": data_summary,
                 "raw_response": analysis_text  # Keep raw for debugging
@@ -579,9 +632,8 @@ Remember: Respond with VALID JSON only. No markdown formatting, no code blocks."
             print(f"[Gemini] Warning: Could not parse JSON response. Returning text format. Error: {e}")
             print(f"[Gemini] First 500 chars of response: {analysis_text[:500]}")
             # Return text format as fallback
-            sources_analyzed = [r.get("source") for r in valid_results]
             return {
-                "sources": sources_analyzed,
+                "sources": sources,
                 "sentiment_analysis": {"text": analysis_text},
                 "data_summary": data_summary,
                 "parse_error": str(e)
@@ -593,18 +645,18 @@ Remember: Respond with VALID JSON only. No markdown formatting, no code blocks."
         traceback.print_exc()
         return {
             "error": str(e),
-            "sources": [r.get("source") for r in all_results if r and not r.get("error")]
+            "sources": sources if 'sources' in dir() else []
         }
 
 
-async def _analyze_sentiment_batch_processing(model, valid_results: list, toon_text: str, data_summary: dict) -> dict:
+async def _analyze_sentiment_batch_processing(model, scrape_results: list, toon_text: str, data_summary: dict) -> dict:
     """
     Handle large datasets by processing in batches based on token limits.
     Uses TOON format text directly (already formatted efficiently from all sources).
     
     Args:
         model: Gemini model instance
-        valid_results: List of valid result dictionaries
+        scrape_results: List of tuples from scrape functions
         toon_text: TOON format text (token-efficient format)
         data_summary: Dictionary with data summary
     
@@ -619,8 +671,8 @@ async def _analyze_sentiment_batch_processing(model, valid_results: list, toon_t
     print(f"[Gemini] Total TOON text size: {total_size:,} characters (~{total_size // 4:,} tokens)")
     
     # Split into chunks based on token limits
-    # Rough estimate: 1 token ≈ 4 characters, target ~800k tokens per batch (conservative)
-    MAX_CHARS_PER_BATCH = 3200000  # ~800k tokens
+    # Rough estimate: 1 token ≈ 4 characters, target ~180k tokens per batch (conservative for 250K limit)
+    MAX_CHARS_PER_BATCH = 720000  # ~180k tokens
     batch_results = []
     
     # Split combined_text into chunks
@@ -687,18 +739,18 @@ async def _analyze_sentiment_batch_processing(model, valid_results: list, toon_t
             batch_num += 1
     
     # Aggregate batch results intelligently
-    aggregated = _aggregate_batch_results(batch_results, valid_results, data_summary)
+    aggregated = _aggregate_batch_results(batch_results, scrape_results, data_summary)
     
     return aggregated
 
 
-def _aggregate_batch_results(batch_results: list, valid_results: list, data_summary: dict) -> dict:
+def _aggregate_batch_results(batch_results: list, scrape_results: list, data_summary: dict) -> dict:
     """
     Aggregate results from multiple batches into a unified analysis.
     
     Args:
         batch_results: List of batch analysis results
-        valid_results: Original valid results
+        scrape_results: List of tuples from scrape functions
         data_summary: Data summary dictionary
     
     Returns:
@@ -768,14 +820,19 @@ def _aggregate_batch_results(batch_results: list, valid_results: list, data_summ
     
     # Calculate average rating from reviews with ratings
     ratings = []
-    for data in valid_results:
-        if data.get("source") == "google_play_store":
-            for r in data.get("reviews", []):
+    for result in scrape_results:
+        source = result[0]
+        if source == "google_play_store":
+            # tuple: (source, product_id, platform, reviews, total_reviews)
+            reviews = result[3]
+            for r in reviews:
                 rating = r.get("rating")
                 if rating:
                     ratings.append(float(rating))
-        elif data.get("source") == "apple_app_store":
-            for r in data.get("reviews", []):
+        elif source == "apple_app_store":
+            # tuple: (source, product_id, country, reviews, total_reviews)
+            reviews = result[3]
+            for r in reviews:
                 rating = r.get("rating")
                 if rating:
                     ratings.append(float(rating))
@@ -821,7 +878,7 @@ def _aggregate_batch_results(batch_results: list, valid_results: list, data_summ
     }
     
     return {
-        "sources": [r.get("source") for r in valid_results],
+        "sources": [result[0] for result in scrape_results],
         "sentiment_analysis": aggregated_analysis,
         "data_summary": data_summary,
         "note": f"Results processed in {len(batch_results)} batches (combined all sources)"
@@ -899,32 +956,61 @@ async def main():
         # Run single task
         results = [await tasks_to_run[0]]
     
-    # Filter out errors and collect valid results
-    valid_results = []
+    # Filter out errors and collect valid results (now tuples)
+    scrape_results = []
     for result in results:
         if isinstance(result, Exception):
             print(f"Error in scraper: {result}")
             continue
         
-        if result and not result.get("error"):
-            valid_results.append(result)
+        # Result is a tuple: (source, ..., reviews, total)
+        # Check if it has reviews/discussions (index 3)
+        if result and len(result) >= 5 and result[3]:  # reviews/discussions list
+            scrape_results.append(result)
     
     # Perform combined sentiment analysis on all results
-    if valid_results:
+    if scrape_results:
         print(f"\n{'=' * 60}")
-        print(f"All {len(valid_results)} scraper(s) completed.")
+        print(f"All {len(scrape_results)} scraper(s) completed.")
         print(f"{'=' * 60}")
         
-        # Save JSON results to file for testing
-        output_filename = "scraped_data.json"
-        with open(output_filename, "w", encoding="utf-8") as f:
-            json.dump(valid_results, f, indent=2, ensure_ascii=False)
-        print(f"\nScraped data saved to {output_filename}")
-        print(f"Total sources: {len(valid_results)}")
+        # Build combined query with metadata and TOON-formatted reviews
+        print(f"\n{'=' * 60}")
+        print("BUILDING COMBINED QUERY (METADATA + TOON)")
+        print(f"{'=' * 60}")
+        combined_query, data_summary = build_gemini_query(scrape_results)
+        
+        if combined_query:
+            print(f"\n[TOON] Conversion successful!")
+            print(f"[TOON] Combined query length: {len(combined_query):,} characters")
+            print(f"[TOON] Estimated tokens: ~{len(combined_query) // 4:,} tokens")
+            print(f"\n{'=' * 60}")
+            print("COMBINED QUERY OUTPUT (METADATA + TOON):")
+            print(f"{'=' * 60}")
+            print(combined_query)
+            print(f"{'=' * 60}")
+            
+            # Save TOON format to file
+            toon_filename = "scraped_data.txt"
+            with open(toon_filename, "w", encoding="utf-8") as f:
+                f.write(combined_query)
+            print(f"\nTOON format saved to {toon_filename}")
+            
+            # Display data summary
+            if data_summary:
+                print(f"\nData Summary:")
+                for source, stats in data_summary.items():
+                    source_name = source.replace("_", " ").title()
+                    if "analyzed_reviews" in stats:
+                        print(f"  {source_name}: {stats.get('analyzed_reviews', 0)} reviews")
+                    elif "analyzed_items" in stats:
+                        print(f"  {source_name}: {stats.get('analyzed_items', 0)} items")
+        else:
+            print("[TOON] Conversion failed or no data to convert")
         
         # Run Gemini API sentiment analysis
         print(f"\nCombining results for sentiment analysis...")
-        sentiment_result = await analyze_sentiment_with_gemini(valid_results)
+        sentiment_result = await analyze_sentiment_with_gemini(combined_query, data_summary, scrape_results)
         
         # Display combined results
         print(f"\n{'=' * 60}")

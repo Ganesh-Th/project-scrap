@@ -206,3 +206,148 @@
 # if __name__ == "__main__":
 #    main()
 
+
+
+
+###  Reddit using keyword (But only 50 Threads)###
+# import requests
+# import json
+# import time
+# from bs4 import BeautifulSoup
+
+# def scrape_reddit_search(keywords: list, limit_pages=50) -> list[dict]:
+#     # 1. Use old.reddit.com for easier HTML parsing , beacuse new one is made of next.js/react not possible to scrape
+#     base_url = "https://old.reddit.com/search"
+    
+#     all_data = []
+
+#     headers = {
+#         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+#     }
+
+#     for keyword in keywords:
+#         keyword = keyword.strip()
+#         if not keyword:
+#             continue
+
+#         print(f'--- Starting search for: "{keyword}" ---')
+
+#         # FIX 1: Change sort to 'new'. 
+#         # 'relevance' sometimes hides older results or breaks pagination on old.reddit.
+#         current_url = f"{base_url}?q={keyword}&sort=new&t=month"
+        
+#         keyword_results = []
+#         page_counter = 0
+
+#         while current_url and page_counter < limit_pages:
+#             page_counter += 1
+#             print(f"   Scraping Page {page_counter}...")
+
+#             try:
+#                 response = requests.get(current_url, headers=headers, timeout=10)
+                
+#                 if response.status_code == 429:
+#                     print("   !!! Rate limit hit (429). Sleeping for 30 seconds...")
+#                     time.sleep(30)
+#                     continue 
+                
+#                 response.raise_for_status()
+
+#                 soup = BeautifulSoup(response.content, "html.parser")
+                
+#                 results = soup.find_all("div", class_="search-result")
+                
+#                 if not results:
+#                     print("   No results found on this page.")
+#                     break
+
+#                 for result in results:
+#                     title_tag = result.find("a", class_="search-title")
+#                     sub_tag = result.find("a", class_="search-subreddit-link")
+#                     comments_tag = result.find("a", class_="search-comments")
+#                     time_tag = result.find("span", class_="search-time")
+
+#                     if title_tag:
+#                         title = title_tag.get_text(strip=True)
+#                         href = title_tag["href"]
+                        
+#                         if href.startswith("/"):
+#                             href = f"https://old.reddit.com{href}"
+
+#                         post_data = {
+#                             "title": title,
+#                             "url": href,
+#                             "subreddit": sub_tag.get_text(strip=True) if sub_tag else "Unknown",
+#                             "comments": comments_tag.get_text(strip=True) if comments_tag else "0 comments",
+#                             "posted": time_tag.get_text(strip=True) if time_tag else "Unknown"
+#                         }
+#                         keyword_results.append(post_data)
+
+#                 # --- PAGINATION LOGIC (FIXED) ---
+#                 next_button = soup.find("span", class_="nextprev")
+#                 next_link = None
+                
+#                 if next_button:
+#                     for link in next_button.find_all("a"):
+#                         # Check if text contains 'next'
+#                         if "next" in link.get_text(strip=True).lower():
+#                             next_link = link["href"]
+#                             break
+                
+#                 if next_link:
+#                     # FIX 2: Handle Relative URLs
+#                     # Sometimes Reddit returns "/search?q=..." instead of "https://..."
+#                     if next_link.startswith("/"):
+#                         next_link = f"https://old.reddit.com{next_link}"
+                    
+#                     current_url = next_link
+#                     time.sleep(2) 
+#                 else:
+#                     print(f"   Reached last page (No 'Next' button found on Page {page_counter}).")
+#                     current_url = None
+
+#             except Exception as e:
+#                 print(f'   Error on page {page_counter}: {e}')
+#                 break
+        
+#         all_data.append({
+#             "keyword": keyword,
+#             "total_found": len(keyword_results),
+#             "results": keyword_results
+#         })
+
+#     return all_data
+
+# def save_scraped_data(data, filename_json="reddit.json"):
+#     if not data:
+#         print('No data to save.')
+#         return
+
+#     try:
+#         with open(filename_json, "w", encoding="utf-8") as file:
+#             json.dump(data, file, indent=2, ensure_ascii=True)
+#             print(f'\nSuccess! Data saved to {filename_json}')
+#     except Exception as e:
+#         print("ERROR saving file:", e)
+
+# def main() -> None:
+#     user_input = input("Enter keywords (comma separated): ").strip()
+    
+#     if not user_input:
+#         return
+
+#     user_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+    
+#     # I increased the limit to 50 pages. 
+#     # If a keyword has 1000s of results, this will scrape 50 * 25 = 1250 threads.
+#     data = scrape_reddit_search(user_keywords, limit_pages=50)
+    
+#     if data:
+#         total_threads = sum(item["total_found"] for item in data)
+#         print(f'\nDone! Extracted {total_threads} threads total.')
+#         save_scraped_data(data)
+#     else:
+#         print("No data returned!")
+
+# if __name__ == "__main__":
+#     main()

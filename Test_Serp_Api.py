@@ -253,87 +253,195 @@ async def scrape_apple_store_reviews(product_id: str, country: str, target_revie
 
 
 # ============================================================================
-# Task 3: Reddit Scraper
+# Task 3: Reddit Scraper (using old.reddit.com keyword search)
 # ============================================================================
-async def scrape_reddit(topic: str, keywords: list) -> tuple:
+async def scrape_reddit(keywords: list, limit_pages: int = 50) -> tuple:
     """
-    Scrape Reddit subreddit for topics and discussions.
+    Scrape Reddit using keyword search on old.reddit.com.
     
     Args:
-        topic: Subreddit name (e.g., Python, Gaming, Tech)
-        keywords: List of keywords to filter for
+        keywords: List of keywords to search for
+        limit_pages: Maximum pages to scrape per keyword (default: 50)
     
     Returns:
-        tuple: (source, topic, keywords, discussions_json, total_discussions)
+        tuple: (source, keywords, results_json, total_results)
             - source: "reddit"
-            - topic: The subreddit topic
             - keywords: List of keywords used
-            - discussions_json: Flattened list of discussion dictionaries (to be converted to TOON)
-            - total_discussions: Number of discussions scraped
+            - results_json: List of post dictionaries with title, url, subreddit, comments, posted
+            - total_results: Number of posts scraped
     """
-    print(f"\n[Reddit] Starting scrape for topic: {topic}, keywords: {keywords}")
+    print(f"\n[Reddit] Starting keyword search for: {keywords}")
     
-    base_reddit_url = "https://www.reddit.com"
-    subreddits = [
-        f"https://www.reddit.com/r/{topic}",
-        f"https://www.reddit.com/r/{topic}/hot"
-    ]
+    base_url = "https://old.reddit.com/search"
+    all_results = []
     
-    all_data = []
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
     
-    for url in subreddits:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+    for keyword in keywords:
+        keyword = keyword.strip()
+        if not keyword:
+            continue
         
-        subreddit_name = url.split("/")[-1]
-        print(f'[Reddit] Scraping for: {subreddit_name}')
+        print(f'[Reddit] --- Starting search for: "{keyword}" ---')
         
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
+        # Use relevance sort and filter by month
+        current_url = f"{base_url}?q={keyword}&sort=relevance&t=month"
+        
+        keyword_results = []
+        page_counter = 0
+        
+        while current_url and page_counter < limit_pages:
+            page_counter += 1
+            print(f"[Reddit]    Scraping Page {page_counter}...")
             
-            soup = BeautifulSoup(response.content, "html.parser")
-            
-            scraped_at = time.strftime("%Y-%m-%d %H:%M:%S")
-            
-            discussions = []
-            seen_urls = set()
-            
-            for link in soup.find_all("a", href=True):
-                text = link.get_text(strip=True)
-                href = link["href"]
+            try:
+                response = requests.get(current_url, headers=headers, timeout=10)
                 
-                if text and len(text) > 1 and "/comments/" in href and href not in seen_urls:
-                    seen_urls.add(href)
-                    full_url = urljoin(base_reddit_url, href)
+                # Handle rate limiting
+                if response.status_code == 429:
+                    print("[Reddit]    !!! Rate limit hit (429). Sleeping for 30 seconds...")
+                    await asyncio.sleep(30)
+                    continue
+                
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.content, "html.parser")
+                
+                results = soup.find_all("div", class_="search-result")
+                
+                if not results:
+                    print("[Reddit]    No results found on this page.")
+                    break
+                
+                scraped_at = time.strftime("%Y-%m-%d %H:%M:%S")
+                
+                for result in results:
+                    title_tag = result.find("a", class_="search-title")
+                    sub_tag = result.find("a", class_="search-subreddit-link")
+                    comments_tag = result.find("a", class_="search-comments")
+                    time_tag = result.find("span", class_="search-time")
                     
-                    # Include subreddit_name and scraped_at in each discussion
-                    discussions.append({
-                        "subreddit_name": subreddit_name,
-                        "title": text[:100] + " ... " if len(text) > 100 else text,
-                        "url": full_url,
-                        "type": "discussion",
-                        "scraped_at": scraped_at
-                    })
+                    if title_tag:
+                        title = title_tag.get_text(strip=True)
+                        href = title_tag["href"]
+                        
+                        if href.startswith("/"):
+                            href = f"https://old.reddit.com{href}"
+                        
+                        post_data = {
+                            "keyword": keyword,
+                            "title": title,
+                            "url": href,
+                            "subreddit": sub_tag.get_text(strip=True) if sub_tag else "Unknown",
+                            "comments": comments_tag.get_text(strip=True) if comments_tag else "0 comments",
+                            "posted": time_tag.get_text(strip=True) if time_tag else "Unknown",
+                            "scraped_at": scraped_at
+                        }
+                        keyword_results.append(post_data)
+                
+                # Pagination logic
+                next_button = soup.find("span", class_="nextprev")
+                next_link = None
+                
+                if next_button:
+                    for link in next_button.find_all("a"):
+                        if "next" in link.get_text(strip=True).lower():
+                            next_link = link["href"]
+                            break
+                
+                if next_link:
+                    # Handle relative URLs
+                    if next_link.startswith("/"):
+                        next_link = f"https://old.reddit.com{next_link}"
+                    
+                    current_url = next_link
+                    await asyncio.sleep(2)  # Rate limiting delay
+                else:
+                    print(f"[Reddit]    Reached last page (No 'Next' button found on Page {page_counter}).")
+                    current_url = None
             
-            all_data.extend(discussions)
-            await asyncio.sleep(2)  # Use asyncio.sleep instead of time.sleep for async
+            except Exception as e:
+                print(f'[Reddit]    Error on page {page_counter}: {e}')
+                break
         
-        except Exception as e:
-            print(f'[Reddit] Error: {e}')
+        all_results.extend(keyword_results)
+        print(f"[Reddit] Found {len(keyword_results)} results for keyword: {keyword}")
     
-    total_discussions = len(all_data)
-    
-    print(f"[Reddit] Successfully scraped {total_discussions} discussions")
+    total_results = len(all_results)
+    print(f"[Reddit] Successfully scraped {total_results} total posts")
     
     return (
         "reddit",
-        topic,
         keywords,
-        all_data,
-        total_discussions
+        all_results,
+        total_results
     )
+
+
+# ============================================================================
+# Task 4: Google Search Scraper
+# ============================================================================
+async def scrape_google_search(product_name: str) -> tuple:
+    """
+    Scrape Google search results for product reviews using SerpAPI.
+    
+    Args:
+        product_name: Name of the product to search for reviews
+    
+    Returns:
+        tuple: (source, query, results_json, total_results)
+            - source: "google_search"
+            - query: The search query used
+            - results_json: List of organic search result dictionaries
+            - total_results: Number of results fetched
+    """
+    query = f"{product_name} Review"
+    print(f"\n[Google Search] Starting search for: {query}")
+    
+    params = {
+        "engine": "google",
+        "q": query,
+        "api_key": SERPAPI_KEY
+    }
+    
+    try:
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        
+        organic_results = results.get("organic_results", [])
+        
+        # Extract relevant fields from each result
+        processed_results = []
+        scraped_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        
+        for result in organic_results:
+            processed_results.append({
+                "title": result.get("title", ""),
+                "url": result.get("link", ""),
+                "snippet": result.get("snippet", ""),
+                "source": result.get("source", ""),
+                "position": result.get("position", 0),
+                "scraped_at": scraped_at
+            })
+        
+        print(f"[Google Search] Successfully fetched {len(processed_results)} results")
+        
+        return (
+            "google_search",
+            query,
+            processed_results,
+            len(processed_results)
+        )
+    except Exception as e:
+        print(f"[Google Search] Error: {e}")
+        return (
+            "google_search",
+            query,
+            [],
+            0
+        )
 
 
 # ============================================================================
@@ -345,7 +453,7 @@ def convert_reviews_to_toon(reviews: list, source_type: str) -> str:
     
     Args:
         reviews: List of review dictionaries
-        source_type: "google_play_store", "apple_app_store", or "reddit"
+        source_type: "google_play_store", "apple_app_store", "reddit", or "google_search"
     
     Returns:
         TOON formatted string with header and data rows
@@ -373,11 +481,21 @@ def convert_reviews_to_toon(reviews: list, source_type: str) -> str:
         return "\n".join(rows)
     
     elif source_type == "reddit":
-        header = "subreddit | title | url | type | scraped_at"
+        header = "keyword | subreddit | title | url | comments | posted | scraped_at"
         rows = [header]
-        for discussion in reviews:
-            title = str(discussion.get("title", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
-            row = f"{discussion.get('subreddit_name', '')} | {title} | {discussion.get('url', '')} | {discussion.get('type', '')} | {discussion.get('scraped_at', '')}"
+        for post in reviews:
+            title = str(post.get("title", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
+            row = f"{post.get('keyword', '')} | {post.get('subreddit', '')} | {title} | {post.get('url', '')} | {post.get('comments', '')} | {post.get('posted', '')} | {post.get('scraped_at', '')}"
+            rows.append(row)
+        return "\n".join(rows)
+    
+    elif source_type == "google_search":
+        header = "position | title | url | snippet | source | scraped_at"
+        rows = [header]
+        for result in reviews:
+            title = str(result.get("title", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
+            snippet = str(result.get("snippet", "")).replace("|", " ").replace("\n", " ").replace("\r", " ")
+            row = f"{result.get('position', '')} | {title} | {result.get('url', '')} | {snippet} | {result.get('source', '')} | {result.get('scraped_at', '')}"
             rows.append(row)
         return "\n".join(rows)
     
@@ -396,7 +514,8 @@ def build_gemini_query(scrape_results: list) -> tuple[str, dict]:
         scrape_results: List of tuples from scrape functions
             - Google Play: (source, product_id, platform, reviews, total_reviews)
             - Apple Store: (source, product_id, country, reviews, total_reviews)
-            - Reddit: (source, topic, keywords, discussions, total_discussions)
+            - Reddit: (source, keywords, results, total_results)
+            - Google Search: (source, query, results, total_results)
     
     Returns:
         Tuple of (combined_query: str, data_summary: dict)
@@ -449,24 +568,41 @@ Reviews (TOON format):
             }
         
         elif source == "reddit":
-            _, topic, keywords, discussions, total_discussions = result
-            discussions_toon = convert_reviews_to_toon(discussions, "reddit")
+            _, keywords, posts, total_posts = result
+            posts_toon = convert_reviews_to_toon(posts, "reddit")
             
             keywords_str = ', '.join(keywords) if keywords else ''
             
-            section = f"""=== REDDIT DISCUSSIONS ===
+            section = f"""=== REDDIT POSTS ===
 Source: {source}
-Topic: {topic}
 Keywords: {keywords_str}
-Total Discussions: {total_discussions}
+Total Posts: {total_posts}
 
-Discussions (TOON format):
-{discussions_toon}"""
+Posts (TOON format):
+{posts_toon}"""
             sections.append(section)
             
             data_summary[source] = {
-                "total_discussions": total_discussions,
-                "analyzed_items": total_discussions
+                "total_posts": total_posts,
+                "analyzed_items": total_posts
+            }
+        
+        elif source == "google_search":
+            _, query, results, total_results = result
+            results_toon = convert_reviews_to_toon(results, "google_search")
+            
+            section = f"""=== GOOGLE SEARCH RESULTS ===
+Source: {source}
+Query: {query}
+Total Results: {total_results}
+
+Results (TOON format):
+{results_toon}"""
+            sections.append(section)
+            
+            data_summary[source] = {
+                "total_results": total_results,
+                "analyzed_items": total_results
             }
     
     combined_query = "\n\n".join(sections)
@@ -914,30 +1050,33 @@ async def main():
         print(f"Using country code: {apple_country}")
     
     print("\n--- Reddit Inputs ---")
-    reddit_topic = input("Enter the Subreddit name (press Enter to skip): ").strip()
+    reddit_keywords_input = input("Enter keywords to search on Reddit, separated by commas (press Enter to skip): ").strip()
     reddit_keywords = []
-    if reddit_topic:
-        keywords_input = input("Enter keywords to filter for, separated by commas: ").strip()
-        if keywords_input:
-            reddit_keywords = [k.strip() for k in keywords_input.split(",") if k.strip()]
-        if not reddit_keywords:
-            reddit_keywords = [reddit_topic]
+    if reddit_keywords_input:
+        reddit_keywords = [k.strip() for k in reddit_keywords_input.split(",") if k.strip()]
+    
+    print("\n--- Google Search Inputs ---")
+    google_search_product = input("Enter product name to search for reviews (press Enter to skip): ").strip()
     
     # Determine execution mode
     tasks_to_run = []
-    run_google = bool(google_product_id)
+    run_google_play = bool(google_product_id)
     run_apple = bool(apple_product_id)
-    run_reddit = bool(reddit_topic and reddit_keywords)
+    run_reddit = bool(reddit_keywords)
+    run_google_search = bool(google_search_product)
     
     # Run conditionally
-    if run_google:
+    if run_google_play:
         tasks_to_run.append(scrape_google_play_reviews(google_product_id, google_platform))
     
     if run_apple:
         tasks_to_run.append(scrape_apple_store_reviews(apple_product_id, apple_country))
     
     if run_reddit:
-        tasks_to_run.append(scrape_reddit(reddit_topic, reddit_keywords))
+        tasks_to_run.append(scrape_reddit(reddit_keywords))
+    
+    if run_google_search:
+        tasks_to_run.append(scrape_google_search(google_search_product))
     
     if not tasks_to_run:
         print("\nNo valid inputs provided. Exiting.")
@@ -963,10 +1102,14 @@ async def main():
             print(f"Error in scraper: {result}")
             continue
         
-        # Result is a tuple: (source, ..., reviews, total)
-        # Check if it has reviews/discussions (index 3)
-        if result and len(result) >= 5 and result[3]:  # reviews/discussions list
-            scrape_results.append(result)
+        # Result is a tuple: (source, ..., data, total)
+        # Google Play/Apple: 5 elements (source, id, platform/country, reviews, total)
+        # Reddit/Google Search: 4 elements (source, keywords/query, results, total)
+        if result and len(result) >= 4:
+            # Data is at index -2 (second to last), total is at index -1 (last)
+            data = result[-2]
+            if data:  # Check if there's data
+                scrape_results.append(result)
     
     # Perform combined sentiment analysis on all results
     if scrape_results:

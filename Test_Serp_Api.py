@@ -382,3 +382,191 @@
 #     json.dump(organic_results, f, ensure_ascii=False, indent=2)
 
 # print("Saved reviews to Google_search.json")
+
+
+
+### Reddit text-body & comments working
+# import requests
+# import json
+# import time
+# import random
+# from bs4 import BeautifulSoup
+
+# # --- CONFIGURATION ---
+# USER_AGENTS = [
+#     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+#     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+#     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+# ]
+
+# def get_random_header():
+#     return {
+#         'User-Agent': random.choice(USER_AGENTS),
+#         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+#         'Accept-Language': 'en-US,en;q=0.5',
+#         'Referer': 'https://www.google.com/',
+#         'DNT': '1',
+#         'Connection': 'keep-alive',
+#         'Upgrade-Insecure-Requests': '1',
+#     }
+
+# def scrape_thread_details(session, thread_url):
+#     """
+#     Visits a specific thread URL to extract the body text and comments.
+#     """
+#     print(f"      -> Visiting thread: {thread_url[:60]}...")
+#     try:
+#         time.sleep(random.uniform(2, 4)) # Random sleep to be safe
+        
+#         response = session.get(thread_url, headers=get_random_header(), timeout=10)
+        
+#         if response.status_code != 200:
+#             # FIX: Key name must be 'body_text' to match the main loop
+#             return {"body_text": "[Error: Could not load]", "comments_list": []}
+
+#         soup = BeautifulSoup(response.content, "html.parser")
+
+#         # 1. Extract Post Body
+#         body_text = ""
+#         main_post = soup.find("div", class_="link")
+#         if main_post:
+#             usertext = main_post.find("div", class_="usertext-body")
+#             if usertext:
+#                 body_text = usertext.get_text(separator="\n", strip=True)
+
+#         # 2. Extract Comments
+#         comments_data = []
+#         comment_area = soup.find("div", class_="commentarea")
+#         if comment_area:
+#             # Limit to top 20 comments
+#             all_comments = comment_area.find_all("div", class_="entry", limit=20) 
+            
+#             for comment in all_comments:
+#                 try:
+#                     author_tag = comment.find("a", class_="author")
+#                     author = author_tag.get_text(strip=True) if author_tag else "[deleted]"
+                    
+#                     text_div = comment.find("div", class_="usertext-body")
+#                     text = text_div.get_text(strip=True) if text_div else ""
+                    
+#                     if text:
+#                         comments_data.append({
+#                             "author": author,
+#                             "text": text
+#                         })
+#                 except:
+#                     continue
+
+#         return {
+#             "body_text": body_text,
+#             "comments_list": comments_data
+#         }
+
+#     except Exception as e:
+#         print(f"      !!! Error reading thread details: {e}")
+#         # FIX: Key name must be 'body_text' here too
+#         return {"body_text": "[Error]", "comments_list": []}
+
+# def scrape_reddit_search(keywords: list, limit_pages=5) -> list[dict]:
+#     session = requests.Session()
+#     base_url = "https://old.reddit.com/search"
+#     all_data = []
+
+#     for keyword in keywords:
+#         keyword = keyword.strip()
+#         if not keyword: continue
+
+#         print(f'\n--- Search for: "{keyword}" ---')
+#         current_url = f"{base_url}?q={keyword}&sort=new&t=all"
+        
+#         page_counter = 0
+
+#         while current_url and page_counter < limit_pages:
+#             page_counter += 1
+#             print(f"   Scraping Search Page {page_counter}...")
+
+#             try:
+#                 response = session.get(current_url, headers=get_random_header(), timeout=15)
+                
+#                 if response.status_code in [403, 429]:
+#                     print("   !!! Rate Limit/Block. Waiting 60s...")
+#                     time.sleep(60)
+#                     continue
+
+#                 soup = BeautifulSoup(response.content, "html.parser")
+#                 results = soup.find_all("div", class_="search-result")
+
+#                 if not results:
+#                     print("   No more results found.")
+#                     break
+
+#                 for result in results:
+#                     title_tag = result.find("a", class_="search-title")
+#                     sub_tag = result.find("a", class_="search-subreddit-link")
+#                     time_tag = result.find("span", class_="search-time")
+#                     comments_tag = result.find("a", class_="search-comments")
+
+#                     if title_tag:
+#                         href = title_tag["href"]
+#                         if href.startswith("/"):
+#                             href = f"https://old.reddit.com{href}"
+
+#                         # FIX: Skip User Profiles (they break the scraper)
+#                         if "/user/" in href:
+#                             print(f"      -> Skipping User Profile: {href[:40]}...")
+#                             continue
+
+#                         # Go Deeper
+#                         details = scrape_thread_details(session, href)
+
+#                         post_data = {
+#                             "title": title_tag.get_text(strip=True),
+#                             "url": href,
+#                             "subreddit": sub_tag.get_text(strip=True) if sub_tag else "Unknown",
+#                             "posted": time_tag.get_text(strip=True) if time_tag else "Unknown",
+#                             "comment_count_stat": comments_tag.get_text(strip=True) if comments_tag else "0",
+#                             # Now this key is guaranteed to exist
+#                             "body_text": details.get("body_text", ""), 
+#                             "comments_content": details.get("comments_list", [])
+#                         }
+                        
+#                         all_data.append(post_data)
+
+#                 # Pagination
+#                 next_button = soup.find("a", rel=lambda x: x and 'next' in x)
+#                 if next_button and next_button.get('href'):
+#                     current_url = next_button['href']
+#                     if current_url.startswith('/'):
+#                         current_url = f"https://old.reddit.com{current_url}"
+#                     time.sleep(3)
+#                 else:
+#                     current_url = None
+
+#             except Exception as e:
+#                 print(f'   Error on page {page_counter}: {e}')
+#                 break
+        
+#     return all_data
+
+# def save_scraped_data(data, filename_json="reddit_detailed.json"):
+#     if not data:
+#         print('No data to save.')
+#         return
+#     try:
+#         with open(filename_json, "w", encoding="utf-8") as file:
+#             json.dump(data, file, indent=2, ensure_ascii=True)
+#             print(f'\nSuccess! Data saved to {filename_json}')
+#     except Exception as e:
+#         print("ERROR saving file:", e)
+
+# if __name__ == "__main__":
+#     user_input = input("Enter keywords: ")
+#     keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+    
+#     data = scrape_reddit_search(keywords, limit_pages=5) # You can increase pages if needed
+    
+#     if data:
+#         print(f'\nDone! Extracted {len(data)} full threads.')
+#         save_scraped_data(data)
+#     else:
+#         print("No data returned!")

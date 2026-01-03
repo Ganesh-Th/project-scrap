@@ -646,6 +646,259 @@ def convert_reviews_to_toon(reviews: list, source_type: str) -> str:
 
 
 # ============================================================================
+# Helper Function: Parse TOON Findings into Structured JSON
+# ============================================================================
+def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dict) -> dict:
+    """
+    Parse TOON findings into structured JSON format with partial parsing support.
+    
+    Args:
+        toon_text: TOON-formatted findings from Gemini
+        scrape_results: List of tuples from scrape functions (for rating calculation)
+        data_summary: Data summary dictionary
+    
+    Returns:
+        Structured sentiment analysis dictionary
+    """
+    print(f"[TOON Parser] Starting TOON parsing...")
+    
+    # Schema: type | category | title | description | frequency | severity | sample_reviews | recommendation | priority_score | sources
+    lines = toon_text.strip().split('\n')
+    
+    if not lines:
+        print(f"[TOON Parser] Error: Empty TOON text")
+        return None
+    
+    # Find header line
+    header_idx = -1
+    for i, line in enumerate(lines):
+        if 'type' in line.lower() and 'category' in line.lower() and 'title' in line.lower():
+            header_idx = i
+            break
+    
+    if header_idx == -1:
+        print(f"[TOON Parser] Warning: No header found, assuming first line is header")
+        header_idx = 0
+    
+    # Parse findings
+    findings = []
+    skipped_rows = 0
+    
+    for line_num, line in enumerate(lines[header_idx + 1:], start=header_idx + 2):
+        line = line.strip()
+        if not line:
+            continue
+        
+        # Split by pipe delimiter
+        parts = [p.strip() for p in line.split('|')]
+        
+        if len(parts) < 3:  # Need at least type, category, title
+            print(f"[TOON Parser] Warning: Skipping malformed row {line_num} (too few columns): {line[:100]}")
+            skipped_rows += 1
+            continue
+        
+        try:
+            # Extract fields with defaults
+            finding_type = parts[0] if len(parts) > 0 else "pain_point"
+            category = parts[1] if len(parts) > 1 else "other"
+            title = parts[2] if len(parts) > 2 else "Untitled"
+            description = parts[3] if len(parts) > 3 else ""
+            
+            # Parse frequency
+            frequency_str = parts[4] if len(parts) > 4 else "1"
+            try:
+                frequency = int(frequency_str.strip())
+            except (ValueError, AttributeError):
+                frequency = 1
+            
+            # Parse severity
+            severity = parts[5] if len(parts) > 5 else "medium"
+            severity = severity.strip().lower()
+            if severity not in ["critical", "high", "medium", "low"]:
+                severity = "medium"
+            
+            # Parse sample_reviews (semicolon-separated)
+            sample_reviews_str = parts[6] if len(parts) > 6 else ""
+            sample_reviews = [s.strip().replace('[PIPE]', '|') for s in sample_reviews_str.split(';') if s.strip()]
+            
+            # Parse recommendation
+            recommendation = parts[7] if len(parts) > 7 else ""
+            recommendation = recommendation.replace('[PIPE]', '|')
+            
+            # Parse priority_score
+            priority_str = parts[8] if len(parts) > 8 else "5"
+            try:
+                priority_score = int(priority_str.strip())
+            except (ValueError, AttributeError):
+                priority_score = 5
+            
+            # Parse sources (comma-separated)
+            sources_str = parts[9] if len(parts) > 9 else ""
+            sources = [s.strip() for s in sources_str.split(',') if s.strip()]
+            
+            # Replace [PIPE] in text fields
+            title = title.replace('[PIPE]', '|')
+            description = description.replace('[PIPE]', '|')
+            
+            finding = {
+                "type": finding_type.strip(),
+                "category": category,
+                "title": title,
+                "description": description,
+                "frequency": frequency,
+                "severity": severity,
+                "sample_reviews": sample_reviews[:3],  # Limit to 3
+                "recommendation": recommendation,
+                "priority_score": priority_score,
+                "sources": sources
+            }
+            
+            findings.append(finding)
+            
+        except Exception as e:
+            print(f"[TOON Parser] Warning: Error parsing row {line_num}: {e}")
+            skipped_rows += 1
+            continue
+    
+    print(f"[TOON Parser] Parsed {len(findings)} findings, skipped {skipped_rows} malformed rows")
+    
+    if not findings:
+        print(f"[TOON Parser] Error: No valid findings parsed")
+        return None
+    
+    # Group findings by type
+    bugs = [f for f in findings if f["type"] == "bug"]
+    feature_requests = [f for f in findings if f["type"] == "feature_request"]
+    requirements = [f for f in findings if f["type"] == "requirement"]
+    usability_frictions = [f for f in findings if f["type"] == "usability_friction"]
+    pain_points = [f for f in findings if f["type"] == "pain_point"]
+    positive_reviews = [f for f in findings if f["type"] == "positive_review"]
+    ai_insights = [f for f in findings if f["type"] == "ai_insight"]
+    
+    # Calculate overall sentiment from frequency distribution
+    total_positive = sum(f["frequency"] for f in positive_reviews)
+    total_negative = sum(f["frequency"] for f in bugs) + sum(f["frequency"] for f in pain_points)
+    total_neutral = sum(f["frequency"] for f in feature_requests) + sum(f["frequency"] for f in requirements)
+    total_sentiment = total_positive + total_negative + total_neutral
+    
+    if total_sentiment > 0:
+        positive_pct = (total_positive / total_sentiment) * 100
+        negative_pct = (total_negative / total_sentiment) * 100
+        neutral_pct = (total_neutral / total_sentiment) * 100
+    else:
+        positive_pct = negative_pct = neutral_pct = 33.3
+    
+    # Calculate average rating from reviews
+    ratings = []
+    for result in scrape_results:
+        source = result[0]
+        if source == "google_play_store":
+            reviews = result[3]
+            for r in reviews:
+                rating = r.get("rating")
+                if rating:
+                    ratings.append(float(rating))
+        elif source == "apple_app_store":
+            reviews = result[3]
+            for r in reviews:
+                rating = r.get("rating")
+                if rating:
+                    ratings.append(float(rating))
+    
+    avg_rating = sum(ratings) / len(ratings) if ratings else 0
+    
+    # Calculate total reviews analyzed
+    total_reviews = 0
+    for source, stats in data_summary.items():
+        if "analyzed_reviews" in stats:
+            total_reviews += stats.get("analyzed_reviews", 0)
+        elif "analyzed_items" in stats:
+            total_reviews += stats.get("analyzed_items", 0)
+    
+    # Build priority actions from top findings
+    priority_actions = []
+    
+    # Add critical bugs
+    critical_bugs = sorted([f for f in bugs if f["severity"] == "critical"], 
+                          key=lambda x: x["priority_score"], reverse=True)[:3]
+    for bug in critical_bugs:
+        priority_actions.append({
+            "action": f"Fix critical bug: {bug['title']}",
+            "reason": f"Critical severity with {bug['frequency']} mentions - impacts core functionality",
+            "expected_impact": "high",
+            "effort_required": "high"
+        })
+    
+    # Add top requirements
+    top_requirements = sorted(requirements, key=lambda x: x["priority_score"], reverse=True)[:2]
+    for req in top_requirements:
+        priority_actions.append({
+            "action": f"Implement required feature: {req['title']}",
+            "reason": f"Expected by users ({req['frequency']} mentions) - missing essential functionality",
+            "expected_impact": "high",
+            "effort_required": "medium"
+        })
+    
+    # Add top usability frictions
+    top_frictions = sorted(usability_frictions, key=lambda x: x["priority_score"], reverse=True)[:2]
+    for friction in top_frictions:
+        priority_actions.append({
+            "action": f"Fix UX issue: {friction['title']}",
+            "reason": f"Causes user frustration ({friction['frequency']} mentions) - UX improvement",
+            "expected_impact": "medium",
+            "effort_required": "low"
+        })
+    
+    priority_actions = priority_actions[:7]
+    
+    # Build key insights
+    key_insights = []
+    
+    if bugs:
+        key_insights.append(f"Found {len(bugs)} bugs, {len(critical_bugs)} critical. Top issue: {bugs[0]['title']} ({bugs[0]['frequency']} mentions)")
+    
+    if feature_requests:
+        top_feature = sorted(feature_requests, key=lambda x: x["frequency"], reverse=True)[0]
+        key_insights.append(f"Top feature request: {top_feature['title']} ({top_feature['frequency']} mentions)")
+    
+    if positive_reviews:
+        top_positive = sorted(positive_reviews, key=lambda x: x["frequency"], reverse=True)[0]
+        key_insights.append(f"Users love: {top_positive['title']} ({top_positive['frequency']} mentions)")
+    
+    key_insights.append(f"Overall sentiment: {round(positive_pct, 1)}% positive, {round(negative_pct, 1)}% negative")
+    
+    if ai_insights:
+        key_insights.append(f"AI identified {len(ai_insights)} patterns/correlations across sources")
+    
+    # Build final analysis
+    analysis = {
+        "overall_sentiment": {
+            "positive_percentage": round(positive_pct, 1),
+            "negative_percentage": round(negative_pct, 1),
+            "neutral_percentage": round(neutral_pct, 1),
+            "average_rating": round(avg_rating, 2),
+            "total_reviews_analyzed": total_reviews
+        },
+        "bugs": bugs,
+        "feature_requests": feature_requests,
+        "requirements": requirements,
+        "usability_frictions": usability_frictions,
+        "pain_points": pain_points,
+        "positive_reviews": positive_reviews,
+        "ai_insights": ai_insights,
+        "priority_actions": priority_actions,
+        "key_insights": key_insights
+    }
+    
+    print(f"[TOON Parser] Successfully parsed into structured analysis:")
+    print(f"[TOON Parser]   - Bugs: {len(bugs)}, Features: {len(feature_requests)}, Requirements: {len(requirements)}")
+    print(f"[TOON Parser]   - Usability: {len(usability_frictions)}, Pain Points: {len(pain_points)}")
+    print(f"[TOON Parser]   - Positive: {len(positive_reviews)}, AI Insights: {len(ai_insights)}")
+    
+    return analysis
+
+
+# ============================================================================
 # Helper Function: Build Combined Query for Gemini API
 # ============================================================================
 def build_gemini_query(scrape_results: list) -> tuple[str, dict]:
@@ -871,7 +1124,7 @@ Include findings from social media in your analysis.
         
         prompt = f"""You are an expert app analyst specializing in user feedback analysis.
 
-CRITICAL: You must respond with VALID JSON only. No markdown, no code blocks, just pure JSON.
+CRITICAL: Output ONLY in TOON (pipe-delimited) format. NO JSON, NO markdown, just the TOON table.
 
 TASKS:
 1. Analyze ALL reviews and discussions from all provided sources
@@ -885,8 +1138,7 @@ TASKS:
    - pain_point: General problems causing user dissatisfaction
    - positive_review: Things users love, praise, and appreciate
    - ai_insight: Patterns, trends, or correlations YOU identify by cross-referencing all sources
-3. Generate AI insights by finding hidden patterns and correlations users don't explicitly state
-4. Provide comprehensive analysis in the JSON structure below
+5. Generate AI insights by finding hidden patterns and correlations users don't explicitly state
 
 IMPORTANT INSTRUCTIONS:
 - Cross-reference findings across all sources
@@ -894,46 +1146,23 @@ IMPORTANT INSTRUCTIONS:
 - Detect trends (e.g., "Bug reports increased after version update")
 - Find platform-specific issues (e.g., "Android users report more crashes than iOS")
 
-JSON OUTPUT STRUCTURE (respond with this exact structure):
-{{
-  "overall_sentiment": {{
-    "positive_percentage": <number>,
-    "negative_percentage": <number>,
-    "neutral_percentage": <number>,
-    "average_rating": <number>,
-    "total_reviews_analyzed": <number>
-  }},
-  "findings": [
-    {{
-      "type": "bug|feature_request|requirement|usability_friction|pain_point|positive_review|ai_insight",
-      "category": "<performance|ui|security|content|pricing|navigation|etc>",
-      "title": "<short descriptive title>",
-      "description": "<detailed description of the finding>",
-      "frequency": <number of times mentioned>,
-      "severity": "<critical|high|medium|low>",
-      "sample_reviews": ["<review text 1>", "<review text 2>"],
-      "recommendation": "<specific actionable recommendation>",
-      "priority_score": <1-10, higher = more urgent>,
-      "sources": ["<reddit|google_play_store|apple_app_store|google_search|social_media>"]
-    }}
-  ],
-  "bugs": [],
-  "feature_requests": [],
-  "requirements": [],
-  "usability_frictions": [],
-  "pain_points": [],
-  "positive_reviews": [],
-  "ai_insights": [],
-  "priority_actions": [
-    {{
-      "action": "<specific action to take>",
-      "reason": "<why this is important>",
-      "expected_impact": "<high|medium|low>",
-      "effort_required": "<high|medium|low>"
-    }}
-  ],
-  "key_insights": ["<insight 1>", "<insight 2>", "<insight 3>"]
-}}
+OUTPUT FORMAT (TOON - pipe-delimited):
+type | category | title | description | frequency | severity | sample_reviews | recommendation | priority_score | sources
+
+FORMATTING RULES:
+- Start with the header row exactly as shown above
+- One finding per line
+- Use semicolons (;) to separate multiple sample_reviews
+- Use commas (,) to separate multiple sources
+- Replace any pipe characters (|) in text fields with [PIPE]
+- Keep sample_reviews short (max 2-3 per finding)
+- severity: use critical, high, medium, or low (omit for positive_review and feature_request)
+- priority_score: 1-10, higher = more urgent
+- sources: reddit, google_play_store, apple_app_store, google_search, or social_media
+
+EXAMPLE ROWS:
+bug | performance | App lagging and freezing | Users experiencing significant lag when opening videos | 35 | high | App gets freezed when I open a video; Always lagging and glitching | Optimize video playback and UI responsiveness | 9 | google_play_store,apple_app_store
+positive_review | ui | Clean and intuitive interface | Users praise the app's simple and easy-to-use design | 28 | medium | Love the clean interface; So easy to navigate | Continue prioritizing user-friendly design | 7 | google_play_store,reddit
 
 SCRAPED DATA FROM ALL SOURCES (TOON format):
 {combined_text}
@@ -944,10 +1173,8 @@ Remember:
 1. Use your URL context tool to visit and analyze the Google Search URLs
 2. {f'Search social media for "{product_name} review" to gather additional insights' if product_name else 'Use only the provided data'}
 3. Analyze all provided text data
-4. Categorize EVERY finding into one of the 7 types
-5. Populate the filtered category lists (bugs, feature_requests, etc.) by filtering findings by type
-6. Generate AI insights by cross-referencing all sources
-7. Respond with VALID JSON only (no markdown formatting)"""
+4. Output ONLY the TOON table (header + data rows)
+5. NO JSON, NO markdown code blocks, NO explanations - just the pure TOON table"""
         
         # Create content with user prompt
         contents = [
@@ -976,62 +1203,28 @@ Remember:
         response_text = await loop.run_in_executor(None, generate_content)
         analysis_text = response_text.strip()
         
-        # Parse JSON from response
-        try:
-            # Extract JSON from response
-            # First, try to find JSON within markdown code blocks
-            if "```json" in analysis_text:
-                start = analysis_text.find("```json") + 7
-                end = analysis_text.find("```", start)
-                if end > start:
-                    analysis_text = analysis_text[start:end]
-            elif "```" in analysis_text:
-                start = analysis_text.find("```") + 3
-                end = analysis_text.find("```", start)
-                if end > start:
-                    analysis_text = analysis_text[start:end]
-            
-            analysis_text = analysis_text.strip()
-            
-            # If JSON still doesn't start with {, try to find the first {
-            if not analysis_text.startswith("{"):
-                json_start = analysis_text.find("{")
-                if json_start != -1:
-                    analysis_text = analysis_text[json_start:]
-            
-            # Parse JSON
-            analysis_json = json.loads(analysis_text)
-            
-            # Post-process: Create filtered category lists from findings
-            if "findings" in analysis_json and not analysis_json.get("bugs"):
-                findings = analysis_json["findings"]
-                analysis_json["bugs"] = [f for f in findings if f.get("type") == "bug"]
-                analysis_json["feature_requests"] = [f for f in findings if f.get("type") == "feature_request"]
-                analysis_json["requirements"] = [f for f in findings if f.get("type") == "requirement"]
-                analysis_json["usability_frictions"] = [f for f in findings if f.get("type") == "usability_friction"]
-                analysis_json["pain_points"] = [f for f in findings if f.get("type") == "pain_point"]
-                analysis_json["positive_reviews"] = [f for f in findings if f.get("type") == "positive_review"]
-                analysis_json["ai_insights"] = [f for f in findings if f.get("type") == "ai_insight"]
-            
+        # Parse TOON format response
+        analysis_json = _parse_toon_findings(analysis_text, scrape_results, data_summary)
+        
+        if analysis_json is not None:
             print(f"[Gemini] Sentiment analysis completed for sources: {', '.join(sources)}")
             
             return {
                 "sources": sources,
                 "sentiment_analysis": analysis_json,
                 "data_summary": data_summary,
-                "google_urls_analyzed": len(google_urls),
-                "raw_response": analysis_text[:1000]  # Keep first 1000 chars for debugging
+                "processing_mode": "single_request"
             }
-        except json.JSONDecodeError as e:
-            print(f"[Gemini] Warning: Could not parse JSON response. Error: {e}")
-            print(f"[Gemini] First 500 chars of response: {analysis_text[:500]}")
-            # Return text format as fallback
-            return {
-                "sources": sources,
-                "sentiment_analysis": {"text": analysis_text},
-                "data_summary": data_summary,
-                "parse_error": str(e)
-            }
+        
+        # If parsing failed, return raw text for debugging
+        print(f"[Gemini] Warning: Could not parse TOON response.")
+        print(f"[Gemini] First 500 chars of response: {analysis_text[:500]}")
+        return {
+            "sources": sources,
+            "sentiment_analysis": {"text": analysis_text},
+            "data_summary": data_summary,
+            "parse_error": "TOON parsing failed"
+        }
     
     except Exception as e:
         print(f"[Gemini] Error during sentiment analysis: {e}")
@@ -1118,7 +1311,7 @@ Include findings from social media in your analysis.
         
         prompt = f"""You are an expert app analyst. Analyze reviews and categorize findings into 7 types.
 
-CRITICAL: Respond with VALID JSON only.
+CRITICAL: Output ONLY in TOON (pipe-delimited) format. NO JSON, NO markdown.
 
 TASKS:
 1. Analyze all provided text data
@@ -1127,29 +1320,24 @@ TASKS:
 4. Categorize findings into: bug, feature_request, requirement, usability_friction, pain_point, positive_review, ai_insight
 5. Generate AI insights by cross-referencing sources
 
-JSON OUTPUT:
-{{
-  "findings": [
-    {{
-      "type": "bug|feature_request|requirement|usability_friction|pain_point|positive_review|ai_insight",
-      "category": "<performance|ui|security|etc>",
-      "title": "<short title>",
-      "description": "<detailed description>",
-      "frequency": <number>,
-      "severity": "<critical|high|medium|low>",
-      "sample_reviews": ["<review 1>", "<review 2>"],
-      "recommendation": "<actionable recommendation>",
-      "priority_score": <1-10>,
-      "sources": ["<source1|source2|social_media>"]
-    }}
-  ],
-  "sentiment_breakdown": {{"positive": <number>, "negative": <number>, "neutral": <number>}}
-}}
+OUTPUT FORMAT (TOON - pipe-delimited):
+type | category | title | description | frequency | severity | sample_reviews | recommendation | priority_score | sources
+
+FORMATTING RULES:
+- Start with the header row exactly as shown above
+- One finding per line
+- Use semicolons (;) to separate multiple sample_reviews
+- Use commas (,) to separate multiple sources
+- Replace any pipe characters (|) in text fields with [PIPE]
+- severity: critical, high, medium, or low
+- priority_score: 1-10
 
 {batch_info}
 {batch_text}
 {urls_section}
-{social_search}"""
+{social_search}
+
+Output ONLY the TOON table (header + data rows). NO JSON, NO markdown, NO explanations."""
         
         try:
             # Create content with user prompt
@@ -1176,30 +1364,13 @@ JSON OUTPUT:
             response_text = await loop.run_in_executor(None, generate_content)
             response_text = response_text.strip()
             
-            # Extract JSON from response
-            # First, try to find JSON within markdown code blocks
-            if "```json" in response_text:
-                start = response_text.find("```json") + 7
-                end = response_text.find("```", start)
-                if end > start:
-                    response_text = response_text[start:end]
-            elif "```" in response_text:
-                start = response_text.find("```") + 3
-                end = response_text.find("```", start)
-                if end > start:
-                    response_text = response_text[start:end]
-            
-            response_text = response_text.strip()
-            
-            # If JSON still doesn't start with {, try to find the first {
-            if not response_text.startswith("{"):
-                json_start = response_text.find("{")
-                if json_start != -1:
-                    response_text = response_text[json_start:]
-            
-            batch_result = json.loads(response_text)
-            batch_result["batch_info"] = batch_info
-            batch_result["chars_processed"] = len(batch_text)
+            # Parse TOON format - extract findings as list for batch aggregation
+            # We'll store raw TOON text and parse later during aggregation
+            batch_result = {
+                "toon_text": response_text,
+                "batch_info": batch_info,
+                "chars_processed": len(batch_text)
+            }
             batch_results.append(batch_result)
             print(f"[Gemini] Processed {batch_info} ({len(batch_text):,} chars)")
             
@@ -1241,197 +1412,66 @@ def _aggregate_batch_results(batch_results: list, scrape_results: list, data_sum
     """
     print(f"[Gemini] Aggregating results from {len(batch_results)} batches...")
     
-    # Aggregate findings by type and merge duplicates
-    findings_map = {}  # key: (type, title), value: finding dict
+    # Combine all TOON text from batches
+    combined_toon = []
+    header_added = False
     
     for batch in batch_results:
-        for finding in batch.get("findings", []):
-            finding_type = finding.get("type", "pain_point")
-            title = finding.get("title", "").lower().strip()
-            key = (finding_type, title)
+        toon_text = batch.get("toon_text", "")
+        lines = toon_text.strip().split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
             
-            if key not in findings_map:
-                findings_map[key] = {
-                    "type": finding_type,
-                    "category": finding.get("category", "other"),
-                    "title": finding.get("title", ""),
-                    "description": finding.get("description", ""),
-                    "frequency": 0,
-                    "severity": finding.get("severity", "medium"),
-                    "sample_reviews": [],
-                    "recommendation": finding.get("recommendation", ""),
-                    "priority_score": 0,
-                    "sources": []
-                }
+            # Skip header rows after the first one
+            if 'type' in line.lower() and 'category' in line.lower() and 'title' in line.lower():
+                if not header_added:
+                    combined_toon.append(line)
+                    header_added = True
+                continue
             
-            # Merge data
-            findings_map[key]["frequency"] += finding.get("frequency", 1)
-            
-            # Add sample reviews (keep up to 3)
-            existing_samples = findings_map[key]["sample_reviews"]
-            new_samples = finding.get("sample_reviews", [])
-            for sample in new_samples:
-                if len(existing_samples) < 3 and sample not in existing_samples:
-                    existing_samples.append(sample)
-            
-            # Merge sources
-            for src in finding.get("sources", []):
-                if src not in findings_map[key]["sources"]:
-                    findings_map[key]["sources"].append(src)
-            
-            # Update severity to highest
-            current_severity = findings_map[key]["severity"]
-            new_severity = finding.get("severity", "medium")
-            severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
-            if severity_order.get(new_severity, 0) > severity_order.get(current_severity, 0):
-                findings_map[key]["severity"] = new_severity
+            combined_toon.append(line)
     
-    # Convert to list and calculate priority scores
-    all_findings = []
-    for finding in findings_map.values():
-        # Priority = frequency * severity_multiplier
-        severity_mult = {"critical": 4, "high": 3, "medium": 2, "low": 1}.get(finding["severity"], 1)
-        finding["priority_score"] = min(10, (finding["frequency"] * severity_mult) // 5)
-        all_findings.append(finding)
+    # Parse combined TOON
+    combined_toon_text = '\n'.join(combined_toon)
+    print(f"[Gemini] Combined TOON text: {len(combined_toon)} lines")
     
-    # Sort by priority
-    all_findings.sort(key=lambda x: (x["priority_score"], x["frequency"]), reverse=True)
+    analysis = _parse_toon_findings(combined_toon_text, scrape_results, data_summary)
     
-    # Create filtered category lists
-    bugs = [f for f in all_findings if f["type"] == "bug"]
-    feature_requests = [f for f in all_findings if f["type"] == "feature_request"]
-    requirements = [f for f in all_findings if f["type"] == "requirement"]
-    usability_frictions = [f for f in all_findings if f["type"] == "usability_friction"]
-    pain_points = [f for f in all_findings if f["type"] == "pain_point"]
-    positive_reviews = [f for f in all_findings if f["type"] == "positive_review"]
-    ai_insights = [f for f in all_findings if f["type"] == "ai_insight"]
-    
-    # Aggregate sentiment breakdown
-    total_positive = sum(b.get("sentiment_breakdown", {}).get("positive", 0) for b in batch_results)
-    total_negative = sum(b.get("sentiment_breakdown", {}).get("negative", 0) for b in batch_results)
-    total_neutral = sum(b.get("sentiment_breakdown", {}).get("neutral", 0) for b in batch_results)
-    total_sentiment = total_positive + total_negative + total_neutral
-    
-    if total_sentiment > 0:
-        positive_pct = (total_positive / total_sentiment) * 100
-        negative_pct = (total_negative / total_sentiment) * 100
-        neutral_pct = (total_neutral / total_sentiment) * 100
-    else:
-        positive_pct = negative_pct = neutral_pct = 0
-    
-    # Calculate average rating from reviews with ratings
-    ratings = []
-    for result in scrape_results:
-        source = result[0]
-        if source == "google_play_store":
-            # tuple: (source, product_id, platform, reviews, total_reviews)
-            reviews = result[3]
-            for r in reviews:
-                rating = r.get("rating")
-                if rating:
-                    ratings.append(float(rating))
-        elif source == "apple_app_store":
-            # tuple: (source, product_id, country, reviews, total_reviews)
-            reviews = result[3]
-            for r in reviews:
-                rating = r.get("rating")
-                if rating:
-                    ratings.append(float(rating))
-    
-    avg_rating = sum(ratings) / len(ratings) if ratings else 0
-    
-    # Calculate total reviews analyzed from data_summary
-    total_reviews = 0
-    for source, stats in data_summary.items():
-        if "analyzed_reviews" in stats:
-            total_reviews += stats.get("analyzed_reviews", 0)
-        elif "analyzed_items" in stats:
-            total_reviews += stats.get("analyzed_items", 0)
-    
-    # Build priority actions from high-priority findings
-    priority_actions = []
-    
-    # Add critical bugs first
-    critical_bugs = [f for f in bugs if f["severity"] == "critical"][:3]
-    for bug in critical_bugs:
-        priority_actions.append({
-            "action": f"Fix critical bug: {bug['title']}",
-            "reason": f"Critical severity with {bug['frequency']} mentions - impacts core functionality",
-            "expected_impact": "high",
-            "effort_required": "high"
-        })
-    
-    # Add top requirements
-    top_requirements = requirements[:2]
-    for req in top_requirements:
-        priority_actions.append({
-            "action": f"Implement required feature: {req['title']}",
-            "reason": f"Expected by users ({req['frequency']} mentions) - missing essential functionality",
-            "expected_impact": "high",
-            "effort_required": "medium"
-        })
-    
-    # Add top usability frictions (quick wins)
-    top_frictions = usability_frictions[:2]
-    for friction in top_frictions:
-        priority_actions.append({
-            "action": f"Fix UX issue: {friction['title']}",
-            "reason": f"Causes user frustration ({friction['frequency']} mentions) - UX improvement",
-            "expected_impact": "medium",
-            "effort_required": "low"
-        })
-    
-    # Limit to top 7 priority actions
-    priority_actions = priority_actions[:7]
-    
-    # Build key insights
-    key_insights = []
-    
-    if bugs:
-        key_insights.append(f"Found {len(bugs)} bugs, {len(critical_bugs)} critical. Top issue: {bugs[0]['title']} ({bugs[0]['frequency']} mentions)")
-    
-    if feature_requests:
-        key_insights.append(f"Top feature request: {feature_requests[0]['title']} ({feature_requests[0]['frequency']} mentions)")
-    
-    if positive_reviews:
-        key_insights.append(f"Users love: {positive_reviews[0]['title']} ({positive_reviews[0]['frequency']} mentions)")
-    
-    key_insights.append(f"Overall sentiment: {round(positive_pct, 1)}% positive, {round(negative_pct, 1)}% negative")
-    
-    if ai_insights:
-        key_insights.append(f"AI identified {len(ai_insights)} patterns/correlations across sources")
-    
-    # Build aggregated analysis
-    aggregated_analysis = {
-        "overall_sentiment": {
-            "positive_percentage": round(positive_pct, 1),
-            "negative_percentage": round(negative_pct, 1),
-            "neutral_percentage": round(neutral_pct, 1),
-            "average_rating": round(avg_rating, 2),
-            "total_reviews_analyzed": total_reviews
-        },
-        "findings": all_findings,
-        "bugs": bugs,
-        "feature_requests": feature_requests,
-        "requirements": requirements,
-        "usability_frictions": usability_frictions,
-        "pain_points": pain_points,
-        "positive_reviews": positive_reviews,
-        "ai_insights": ai_insights,
-        "priority_actions": priority_actions,
-        "key_insights": key_insights
-    }
-    
-    print(f"[Gemini] Aggregation complete: {len(all_findings)} total findings")
-    print(f"[Gemini]   - Bugs: {len(bugs)}, Features: {len(feature_requests)}, Requirements: {len(requirements)}")
-    print(f"[Gemini]   - Usability: {len(usability_frictions)}, Pain Points: {len(pain_points)}")
-    print(f"[Gemini]   - Positive: {len(positive_reviews)}, AI Insights: {len(ai_insights)}")
+    if analysis is None:
+        # Fallback: return empty structure
+        print(f"[Gemini] Warning: Failed to parse combined TOON. Returning empty structure.")
+        return {
+            "sources": [result[0] for result in scrape_results],
+            "sentiment_analysis": {
+                "overall_sentiment": {
+                    "positive_percentage": 0,
+                    "negative_percentage": 0,
+                    "neutral_percentage": 0,
+                    "average_rating": 0,
+                    "total_reviews_analyzed": 0
+                },
+                "bugs": [],
+                "feature_requests": [],
+                "requirements": [],
+                "usability_frictions": [],
+                "pain_points": [],
+                "positive_reviews": [],
+                "ai_insights": [],
+                "priority_actions": [],
+                "key_insights": ["Failed to parse batch results"]
+            },
+            "data_summary": data_summary,
+            "processing_mode": f"batch_processing ({len(batch_results)} batches) - parse failed"
+        }
     
     return {
         "sources": [result[0] for result in scrape_results],
-        "sentiment_analysis": aggregated_analysis,
+        "sentiment_analysis": analysis,
         "data_summary": data_summary,
-        "note": f"Results processed in {len(batch_results)} batches (combined all sources)"
+        "processing_mode": f"batch_processing ({len(batch_results)} batches)"
     }
 
 

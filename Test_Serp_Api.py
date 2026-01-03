@@ -719,8 +719,20 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
             
             # Parse sample_reviews (semicolon-separated)
             sample_reviews_str = parts[6] if len(parts) > 6 else ""
-            sample_reviews = [s.strip().replace('[PIPE]', '|') for s in sample_reviews_str.split(';') if s.strip()]
-            
+            try:
+                sample_reviews = json.loads(sample_reviews_str)
+    
+                # Optional: Clean up any remaining artifacts if Gemini was extra messy
+                sample_reviews = [s.replace('[PIPE]', '|') for s in sample_reviews]
+    
+            except json.JSONDecodeError:
+    
+                sample_reviews = [
+                    s.strip().strip('\\"').strip('"').replace('[PIPE]', '|') 
+                    for s in sample_reviews_str.split(',') 
+                    if s.strip()
+                ]
+
             # Parse recommendation
             recommendation = parts[7] if len(parts) > 7 else ""
             recommendation = recommendation.replace('[PIPE]', '|')

@@ -1215,6 +1215,11 @@ Remember:
         response_text = await loop.run_in_executor(None, generate_content)
         analysis_text = response_text.strip()
         
+        # Save raw TOON output to file
+        with open("sentiment_analysis_toon.txt", "w", encoding="utf-8") as f:
+            f.write(analysis_text)
+        print(f"[Gemini] Raw TOON output saved to sentiment_analysis_toon.txt")
+        
         # Parse TOON format response
         analysis_json = _parse_toon_findings(analysis_text, scrape_results, data_summary)
         
@@ -1450,6 +1455,11 @@ def _aggregate_batch_results(batch_results: list, scrape_results: list, data_sum
     combined_toon_text = '\n'.join(combined_toon)
     print(f"[Gemini] Combined TOON text: {len(combined_toon)} lines")
     
+    # Save combined raw TOON output to file
+    with open("sentiment_analysis_toon.txt", "w", encoding="utf-8") as f:
+        f.write(combined_toon_text)
+    print(f"[Gemini] Raw TOON output saved to sentiment_analysis_toon.txt")
+    
     analysis = _parse_toon_findings(combined_toon_text, scrape_results, data_summary)
     
     if analysis is None:
@@ -1611,7 +1621,7 @@ async def main():
             toon_filename = "scraped_data.txt"
             with open(toon_filename, "w", encoding="utf-8") as f:
                 f.write(combined_query)
-            print(f"\nTOON format saved to {toon_filename}")
+            print(f"\nINPUT DATA TOON format saved to {toon_filename}")
             
             # Display data summary
             if data_summary:
@@ -1643,164 +1653,16 @@ async def main():
         if sentiment_result.get("error"):
             print(f"Error in sentiment analysis: {sentiment_result['error']}\n")
         else:
-            sources = sentiment_result.get("sources", [])
-            print(f"Sources analyzed: {', '.join([s.replace('_', ' ').title() for s in sources])}\n")
+            # Save to JSON file
+            analysis_filename = "sentiment_analysis.json"
+            with open(analysis_filename, "w", encoding="utf-8") as f:
+                json.dump(sentiment_result, f, indent=2, ensure_ascii=False, separators=(',', ': '))
             
-            # Display structured analysis
-            analysis = sentiment_result.get("sentiment_analysis", {})
-            
-            if isinstance(analysis, dict) and "overall_sentiment" in analysis:
-                # Structured JSON output with 7-category display
-                print("=" * 60)
-                print("OVERALL SENTIMENT")
-                print("=" * 60)
-                overall = analysis.get("overall_sentiment", {})
-                print(f"Positive: {overall.get('positive_percentage', 0):.1f}%")
-                print(f"Negative: {overall.get('negative_percentage', 0):.1f}%")
-                print(f"Neutral: {overall.get('neutral_percentage', 0):.1f}%")
-                print(f"Average Rating: {overall.get('average_rating', 0):.2f}/5")
-                print(f"Total Reviews Analyzed: {overall.get('total_reviews_analyzed', 0)}")
-                
-                # BUGS
-                bugs = analysis.get("bugs", [])
-                if bugs:
-                    print(f"\n{'=' * 60}")
-                    print(f"BUGS ({len(bugs)} found)")
-                    print("=" * 60)
-                    for i, bug in enumerate(bugs[:10], 1):  # Show top 10
-                        print(f"\n{i}. [{bug.get('severity', 'N/A').upper()}] {bug.get('title', 'N/A')}")
-                        print(f"   Category: {bug.get('category', 'N/A')}")
-                        print(f"   Frequency: {bug.get('frequency', 0)} mentions | Priority: {bug.get('priority_score', 0)}/10")
-                        print(f"   Sources: {', '.join(bug.get('sources', []))}")
-                        if bug.get('recommendation'):
-                            print(f"   Recommendation: {bug['recommendation']}")
-                
-                # FEATURE REQUESTS
-                feature_requests = analysis.get("feature_requests", [])
-                if feature_requests:
-                    print(f"\n{'=' * 60}")
-                    print(f"FEATURE REQUESTS ({len(feature_requests)} found)")
-                    print("=" * 60)
-                    for i, feat in enumerate(feature_requests[:10], 1):  # Show top 10
-                        print(f"\n{i}. {feat.get('title', 'N/A')}")
-                        print(f"   Category: {feat.get('category', 'N/A')}")
-                        print(f"   Frequency: {feat.get('frequency', 0)} mentions | Priority: {feat.get('priority_score', 0)}/10")
-                        print(f"   Sources: {', '.join(feat.get('sources', []))}")
-                        if feat.get('recommendation'):
-                            print(f"   Recommendation: {feat['recommendation']}")
-                
-                # REQUIREMENTS
-                requirements = analysis.get("requirements", [])
-                if requirements:
-                    print(f"\n{'=' * 60}")
-                    print(f"REQUIREMENTS ({len(requirements)} found)")
-                    print("=" * 60)
-                    for i, req in enumerate(requirements[:10], 1):  # Show top 10
-                        print(f"\n{i}. {req.get('title', 'N/A')}")
-                        print(f"   Category: {req.get('category', 'N/A')}")
-                        print(f"   Frequency: {req.get('frequency', 0)} mentions | Priority: {req.get('priority_score', 0)}/10")
-                        print(f"   Description: {req.get('description', 'N/A')[:200]}")
-                        if req.get('recommendation'):
-                            print(f"   Recommendation: {req['recommendation']}")
-                
-                # USABILITY FRICTIONS
-                usability_frictions = analysis.get("usability_frictions", [])
-                if usability_frictions:
-                    print(f"\n{'=' * 60}")
-                    print(f"USABILITY FRICTIONS ({len(usability_frictions)} found)")
-                    print("=" * 60)
-                    for i, ux in enumerate(usability_frictions[:10], 1):  # Show top 10
-                        print(f"\n{i}. {ux.get('title', 'N/A')}")
-                        print(f"   Category: {ux.get('category', 'N/A')}")
-                        print(f"   Frequency: {ux.get('frequency', 0)} mentions | Severity: {ux.get('severity', 'N/A')}")
-                        print(f"   Description: {ux.get('description', 'N/A')[:200]}")
-                        if ux.get('recommendation'):
-                            print(f"   Recommendation: {ux['recommendation']}")
-                
-                # PAIN POINTS
-                pain_points = analysis.get("pain_points", [])
-                if pain_points:
-                    print(f"\n{'=' * 60}")
-                    print(f"PAIN POINTS ({len(pain_points)} identified)")
-                    print("=" * 60)
-                    for i, pp in enumerate(pain_points[:10], 1):  # Show top 10
-                        print(f"\n{i}. {pp.get('title', pp.get('issue', 'N/A'))}")
-                        print(f"   Category: {pp.get('category', 'N/A')}")
-                        print(f"   Frequency: {pp.get('frequency', 0)} mentions | Severity: {pp.get('severity', 'N/A')} | Priority: {pp.get('priority_score', 0)}/10")
-                        if pp.get('recommendation'):
-                            print(f"   Recommendation: {pp['recommendation']}")
-                
-                # POSITIVE REVIEWS
-                positive_reviews = analysis.get("positive_reviews", [])
-                if positive_reviews:
-                    print(f"\n{'=' * 60}")
-                    print(f"POSITIVE REVIEWS ({len(positive_reviews)} themes)")
-                    print("=" * 60)
-                    for i, pos in enumerate(positive_reviews[:10], 1):  # Show top 10
-                        print(f"\n{i}. {pos.get('title', pos.get('theme', 'N/A'))}")
-                        print(f"   Frequency: {pos.get('frequency', 0)} mentions")
-                        print(f"   Description: {pos.get('description', 'N/A')[:200]}")
-                        print(f"   Sources: {', '.join(pos.get('sources', []))}")
-                
-                # AI INSIGHTS
-                ai_insights = analysis.get("ai_insights", [])
-                if ai_insights:
-                    print(f"\n{'=' * 60}")
-                    print(f"AI INSIGHTS ({len(ai_insights)} generated)")
-                    print("=" * 60)
-                    for i, insight in enumerate(ai_insights, 1):
-                        print(f"\n{i}. {insight.get('title', 'N/A')}")
-                        print(f"   Type: {insight.get('category', 'pattern/correlation')}")
-                        print(f"   Description: {insight.get('description', 'N/A')}")
-                        if insight.get('sources'):
-                            print(f"   Based on sources: {', '.join(insight['sources'])}")
-                
-                # Priority Actions
-                priority_actions = analysis.get("priority_actions", [])
-                if priority_actions:
-                    print(f"\n{'=' * 60}")
-                    print("PRIORITY ACTIONS")
-                    print("=" * 60)
-                    for i, action in enumerate(priority_actions[:7], 1):  # Show top 7
-                        print(f"\n{i}. {action.get('action', 'N/A')}")
-                        print(f"   Impact: {action.get('expected_impact', 'N/A')} | Effort: {action.get('effort_required', 'N/A')}")
-                        print(f"   Reason: {action.get('reason', 'N/A')}")
-                
-                # Key Insights
-                insights = analysis.get("key_insights", [])
-                if insights:
-                    print(f"\n{'=' * 60}")
-                    print("KEY INSIGHTS")
-                    print("=" * 60)
-                    for i, insight in enumerate(insights, 1):
-                        print(f"{i}. {insight}")
-                
-                # Save structured analysis to file
-                analysis_filename = "sentiment_analysis.json"
-                with open(analysis_filename, "w", encoding="utf-8") as f:
-                    json.dump(sentiment_result, f, indent=2, ensure_ascii=False)
-                print(f"\n{'=' * 60}")
-                print(f"Full analysis saved to {analysis_filename}")
-                print("=" * 60)
-            else:
-                # Fallback to text display
-                print("-" * 60)
-                print(analysis if isinstance(analysis, str) else json.dumps(analysis, indent=2))
-                print("-" * 60)
-            
-            # Display data summary
-            summary = sentiment_result.get("data_summary", {})
-            if summary:
-                print("\nData Summary:")
-                for source, stats in summary.items():
-                    source_name = source.replace("_", " ").title()
-                    if "reviews" in stats:
-                        print(f"  {source_name}: {stats.get('analyzed_reviews', 0)} reviews analyzed out of {stats.get('total_reviews', 0)} total")
-                    elif "topics" in stats or "discussions" in stats:
-                        analyzed = stats.get("analyzed_items", 0)
-                        total = (stats.get("total_topics", 0) + stats.get("total_discussions", 0))
-                        print(f"  {source_name}: {analyzed} items analyzed out of {total} total")
-                print()
+            print(f"\n{'=' * 60}")
+            print(f"Analysis complete!")
+            print(f"Results saved to {analysis_filename} (structured JSON)")
+            print(f"  ")
+            print(f"{'=' * 60}")
     else:
         print("\nNo valid results to analyze.")
     

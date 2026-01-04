@@ -721,22 +721,21 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
             sample_reviews_str = parts[6] if len(parts) > 6 else ""
             try:
                 sample_reviews = json.loads(sample_reviews_str)
-    
-                # Optional: Clean up any remaining artifacts if Gemini was extra messy
-                sample_reviews = [s.replace('[PIPE]', '|') for s in sample_reviews]
-    
-            except json.JSONDecodeError:
-    
                 sample_reviews = [
-                    s.strip().strip('\\"').strip('"').replace('[PIPE]', '|') 
+                    s.replace("[PIPE]", "|").replace("\"", "").replace('\\', '').strip()
+                    for s in sample_reviews
+                ]
+            except json.JSONDecodeError:
+                sample_reviews = [
+                    s.replace("[PIPE]", "|").replace("\"", "").replace("\\", "").strip()
                     for s in sample_reviews_str.split(',') 
                     if s.strip()
                 ]
 
             # Parse recommendation
             recommendation = parts[7] if len(parts) > 7 else ""
-            recommendation = recommendation.replace('[PIPE]', '|')
-            
+            recommendation = recommendation.replace('[PIPE]', '|').replace('"', '').replace('\\', '').strip()
+
             # Parse priority_score
             priority_str = parts[8] if len(parts) > 8 else "5"
             try:
@@ -749,9 +748,10 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
             sources = [s.strip() for s in sources_str.split(',') if s.strip()]
             
             # Replace [PIPE] in text fields
-            title = title.replace('[PIPE]', '|')
-            description = description.replace('[PIPE]', '|')
-            
+            title = title.replace('[PIPE]', '|').replace('"', '').replace('\\', '').strip()
+
+            description = description.replace('[PIPE]', '|').replace('"', '').replace('\\', '').strip()
+
             finding = {
                 "type": finding_type.strip(),
                 "category": category,

@@ -1498,6 +1498,108 @@ def _aggregate_batch_results(batch_results: list, scrape_results: list, data_sum
 
 
 # ============================================================================
+# Task 5: Task Prioritization (Lean / MoSCoW) - JSON OUTPUT
+# ============================================================================
+def clean_json_response(response_text: str) -> str:
+    """Helper to extract JSON from response, removing markdown blocks and surrounding text."""
+    # Remove markdown code blocks
+    if "```json" in response_text:
+        response_text = response_text.split("```json")[1].split("```")[0]
+    elif "```" in response_text:
+        response_text = response_text.split("```").split("```")[1]
+    
+    # Now extract the JSON object from any remaining text
+    # Find the first { and last }
+    start_idx = response_text.find('{')
+    end_idx = response_text.rfind('}')
+    
+    if start_idx != -1 and end_idx != -1:
+        response_text = response_text[start_idx:end_idx + 1]
+    
+    return response_text.strip()
+
+
+async def perform_prioritization(toon_content: str, method: str, duration: int, budget: int, business_goal: str) -> str:
+    """
+    Uses Gemini to prioritize tasks and returns a JSON string.
+    """
+    print(f"\n[Prioritization] Starting {method} prioritization with Gemini...")
+    
+    # Create Gemini client
+    client, model_name, generate_config = create_gemini_client_with_tools()
+
+    prompt = f"""You are an expert Product Manager.
+    
+    CONTEXT:
+    We have analyzed user feedback and generated a list of issues (Bugs, Feature Requests, requirement, usability Friction, Pain point, postive review, ai_insight) in TOON format.
+    We need to prioritize these tasks for our next sprint.
+
+    INPUTS:
+    1. PRIORITIZATION FRAMEWORK: {method}
+       - If MoSCoW: Categorize into Must Have, Should Have, Could Have, Won't Have.
+       - If Lean: Categorize into High Impact/Low Effort, High Impact/High Effort, Low Impact/Low Effort.
+    2. SPRINT DURATION: {duration} Days
+    3. RESOURCE BUDGET: {budget} Developer Hours
+    4. CURRENT BUSINESS GOAL: "{business_goal}"
+
+    INSTRUCTIONS:
+    1. Analyze the TOON data provided below.
+    2. Select the most critical items that align with the '{business_goal}' and {method}Framework.
+    3. Estimate developer hours for each task based on severity and complexity (Make reasonable professional estimates).
+    4. Ensure the total hours of selected 'Must Have' (or High Priority) tasks do not exceed the budget of {budget} hours.
+    5. Output a structured plan.
+    
+    CRITICAL - OUTPUT FORMAT:
+    - Do NOT include any explanation, reasoning, or text before the JSON
+    - Do NOT include markdown code blocks (no ``json` or ```)
+    - Output ONLY the raw JSON object starting with {{ and ending with }}
+    - The response must be valid JSON that can be parsed by json.loads()
+    
+    JSON SCHEMA:
+    {{
+      "plan_metadata": {{
+        "method": "{method}",
+        "goal": "{business_goal}",
+        "budget_hours": {budget},
+        "sprint_duration_days": {duration}
+      }},
+      "prioritized_categories": [
+        {{
+          "category_name": "Name (e.g., Must Have or High Impact)",
+          "tasks": [
+            {{
+              "title": "Task Title",
+              "type": "bug/feature/etc",
+              "impact_reasoning": "Why this is chosen",
+              "estimated_hours": <int>
+            }}
+          ]
+        }}
+      ], 
+      "summary": {{
+        "total_estimated_hours": <int>,
+        "budget_utilization_percentage": <float>,
+        "key_risks": ["risk 1", "risk 2"]
+      }}
+    }}
+
+    TOON DATA:
+    {toon_content}
+    """
+
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=generate_config
+        )
+        return clean_json_response(response.text)
+    except Exception as e:
+        # Return a valid JSON error structure so the main function doesn't crash
+        return json.dumps({"error": f"Error during prioritization: {str(e)}"})
+
+
+# ============================================================================
 # Main Execution Function
 # ============================================================================
 async def main():
@@ -1661,15 +1763,77 @@ async def main():
             print(f"\n{'=' * 60}")
             print(f"Analysis complete!")
             print(f"Results saved to {analysis_filename} (structured JSON)")
-            print(f"  ")
-            print(f"{'=' * 60}")
+            
+            # ============================================================================
+            # NEW ADDITION: Prioritization Step (JSON Output)
+            # ============================================================================
+            print(f"\n{'=' * 60}")
+            proceed = input("Do you want to proceed with Task Prioritization? (yes/no): ").strip().lower()
+            
+            if proceed in ['yes', 'y']:
+                print("\n--- Prioritization Configuration ---")
+                
+                print("Select Prioritization Technique:")
+                print("1. Lean Prioritization (Value vs Effort)")
+                print("2. MoSCoW (Must, Should, Could, Won't)")
+                method_choice = input("Enter choice (1 or 2): ").strip()
+                method = "Lean Prioritization" if method_choice == "1" else "MoSCoW"
+                
+                try:
+                    duration = int(input("Enter Sprint Duration (in days): ").strip())
+                except ValueError:
+                    duration = 14
+                
+                try:
+                    budget = int(input("Enter Resource Budget (developer hours, e.g., 100): ").strip())
+                except ValueError:
+                    budget = 100 
+                
+                business_goal = input("Enter current Business Goal: ").strip()
+                
+                try:
+                    # We need the TOON data from the file (or memory if you prefer)
+                    with open("sentiment_analysis_toon.txt", "r", encoding="utf-8") as f:
+                        toon_content = f.read()
+                    
+                    if not toon_content:
+                        print("Error: sentiment_analysis_toon.txt is empty.")
+                    else:
+                        # Get JSON String
+                        plan_json_str = await perform_prioritization(toon_content, method, duration, budget, business_goal)
+                        
+                        try:
+                            # Parse string to JSON object to ensure validity and allow pretty printing
+                            plan_data = json.loads(plan_json_str)
+                            
+                            print(f"\n{'=' * 60}")
+                            print("PRIORITIZATION PLAN (JSON)")
+                            print(f"{'=' * 60}\n")
+                            # Pretty print to console
+                            print(json.dumps(plan_data, indent=2))
+                            
+                            # Save to JSON file
+                            output_file = "prioritization_plan.json"
+                            with open(output_file, "w", encoding="utf-8") as f:
+                                json.dump(plan_data, f, indent=2, ensure_ascii=False)
+                            print(f"\n[Saved prioritization plan to {output_file}]")
+                            
+                        except json.JSONDecodeError as e:
+                            print("\n[Error] The AI response was not valid JSON. Saving raw response to prioritization_error.txt")
+                            print(f"[Error Details] {str(e)}")
+                            with open("prioritization_error.txt", "w", encoding="utf-8") as f:
+                                f.write(plan_json_str)
+
+                except FileNotFoundError:
+                    print("Error: sentiment_analysis_toon.txt not found. Ensure analysis ran successfully.")
+            else:
+                print("Prioritization was skipped.")
     else:
         print("\nNo valid results to analyze.")
     
     print(f"{'=' * 60}")
     print("All tasks completed!")
     print(f"{'=' * 60}")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

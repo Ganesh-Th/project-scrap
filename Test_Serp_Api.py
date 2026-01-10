@@ -3,20 +3,49 @@ import os
 import time
 import json
 import random
+import logging
+from datetime import datetime
 from serpapi import GoogleSearch
 import requests
 from bs4 import BeautifulSoup
 from google import genai as genai_new
 from google.genai import types
 
+
+
+# ============================================================================
+# Logging Setup
+# ============================================================================
+def setup_logging():
+    """Configures logging to both a file and the console."""
+    log_filename = f"app_logs_{datetime.now().strftime('%Y%m%d')}.log"
+    
+    # Create logger
+    logger = logging.getLogger("MultiSourceScraper")
+    logger.setLevel(logging.INFO)
+
+    # Create formatters
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+    # File Handler (for persistence)
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setFormatter(formatter)
+
+    # Add handlers
+    logger.addHandler(file_handler)
+    
+    return logger
+
+logger = setup_logging()
+
 # API Keys
 SERPAPI_KEY = os.getenv('SERPAPI_KEY')
 if not SERPAPI_KEY:
-    raise RuntimeError("SERPAPI_KEY not set")
+    logger.error("SERP API Keys missing from environment variables.")
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY not set")
+    logger.error("GEMINI API Keys missing from environment variables.")
 
 # ============================================================================
 # Helper Function: Create Gemini Client with URL Context and Google Search
@@ -28,21 +57,29 @@ def create_gemini_client_with_tools():
     Returns:
         Tuple of (client, model_name, config)
     """
-    client = genai_new.Client(api_key=GEMINI_API_KEY)
-    model_name = "gemini-2.5-flash-lite"
+    logger.info("Initializing Gemini Client with Search tools...")
     
-    # Configure tools: URL context for Google Search links + Google Search for social media
-    tools = [
-        types.Tool(url_context=types.UrlContext()),
-        types.Tool(googleSearch=types.GoogleSearch()),
-    ]
+    try:
+        client = genai_new.Client(api_key=GEMINI_API_KEY)
+        model_name = "gemini-2.5-flash-lite"
+        
+        # Configure tools: URL context for Google Search links + Google Search for social media
+        tools = [
+            types.Tool(url_context=types.UrlContext()),
+            types.Tool(googleSearch=types.GoogleSearch()),
+        ]
+        
+        # Configure generation settings
+        generate_config = types.GenerateContentConfig(
+            tools=tools,
+        )
+
+        logger.info("Gemini Client successfully configured.")
+        return client, model_name, generate_config
     
-    # Configure generation settings
-    generate_config = types.GenerateContentConfig(
-        tools=tools,
-    )
-    
-    return client, model_name, generate_config
+    except Exception as e:
+        logger.error(f"Failed to initialize Gemini Client: {str(e)}")
+        raise
 
 # Country mapping based on https://serpapi.com/apple-regions
 # Maps both country codes and country names (case-insensitive) to country codes
@@ -140,7 +177,7 @@ def get_country_code(user_input: str) -> str:
             return code
     
     # If no match found, return the input as-is (might be a valid code we don't have mapped)
-    print(f"Warning: '{user_input}' not found in mapping. Using as-is.")
+    logger.warning(f"Country mapping: '{user_input}' not found. Using as-is.")
     return user_input
 
 
@@ -163,8 +200,8 @@ async def scrape_google_play_reviews(product_id: str, platform: str) -> tuple:
             - reviews_json: List of review dictionaries (to be converted to TOON)
             - total_reviews: Number of reviews fetched
     """
-    print(f"\n[Google Play Store] Starting scrape for product: {product_id}, platform: {platform}")
-    
+    logger.info(f"[Google Play Store] Starting scrape for product: {product_id}, platform: {platform}")
+
     params = {
         "engine": "google_play_product",
         "store": "apps",
@@ -178,12 +215,13 @@ async def scrape_google_play_reviews(product_id: str, platform: str) -> tuple:
     }
     
     try:
+        logger.debug(f"Sending request to SerpApi for Google Play product: {product_id}")
         search = GoogleSearch(params)
         results = search.get_dict()
         reviews = results.get("reviews", [])
         
-        print(f"[Google Play Store] Successfully fetched {len(reviews)} reviews")
-        
+        logger.info(f"[Google Play Store] Successfully fetched {len(reviews)} reviews")
+
         return (
             "google_play_store",
             product_id,
@@ -192,7 +230,7 @@ async def scrape_google_play_reviews(product_id: str, platform: str) -> tuple:
             len(reviews)
         )
     except Exception as e:
-        print(f"[Google Play Store] Error: {e}")
+        logger.error(f"[Google Play Store] Error scraping {product_id}: {e}", exc_info=True)
         return (
             "google_play_store",
             product_id,
@@ -222,8 +260,8 @@ async def scrape_apple_store_reviews(product_id: str, country: str, target_revie
             - reviews_json: List of review dictionaries (to be converted to TOON)
             - total_reviews: Number of reviews fetched
     """
-    print(f"\n[Apple App Store] Starting scrape for product: {product_id}, country: {country}")
-    
+    logger.info(f"[Apple App Store] Starting scrape for product: {product_id}, country: {country}")
+
     all_reviews = []
     page = 1
     
@@ -238,26 +276,30 @@ async def scrape_apple_store_reviews(product_id: str, country: str, target_revie
                 "api_key": SERPAPI_KEY
             }
             
+            logger.debug(f"[Apple App Store] Requesting page {page} for product {product_id}")
+
             search = GoogleSearch(params)
             results = search.get_dict()
             
             reviews = results.get("reviews", [])
             if not reviews:
+                logger.warning(f"[Apple App Store] No reviews found on page {page}. Ending search.")
                 break
             
             all_reviews.extend(reviews)
-            print(f"[Apple App Store] Fetched page {page}... Total reviews so far: {len(all_reviews)}")
+            logger.info(f"[Apple App Store] Fetched page {page}... Total reviews so far: {len(all_reviews)}")
             
             serpapi_pagination = results.get("serpapi_pagination", {})
             if "next" not in serpapi_pagination:
+                logger.info("[Apple App Store] No more pages available.")
                 break
             
             page += 1
         
         all_reviews = all_reviews[:target_reviews]
         
-        print(f"[Apple App Store] Successfully fetched {len(all_reviews)} reviews")
-        
+        logger.info(f"[Apple App Store] Successfully completed. Total fetched: {len(all_reviews)}")
+
         return (
             "apple_app_store",
             product_id,
@@ -266,7 +308,7 @@ async def scrape_apple_store_reviews(product_id: str, country: str, target_revie
             len(all_reviews)
         )
     except Exception as e:
-        print(f"[Apple App Store] Error: {e}")
+        logger.error(f"[Apple App Store] Critical error during scrape of {product_id}: {e}", exc_info=True)
         return (
             "apple_app_store",
             product_id,
@@ -290,7 +332,8 @@ def scrape_reddit_thread_details(session, thread_url):
     Returns:
         dict with keys: title, posted, comment_count_stat, body_text, comments_content
     """
-    print(f"      -> Visiting thread: {thread_url[:60]}...")
+    logger.info(f"[Reddit] Visiting thread: {thread_url[:60]}...")
+    
     try:
         time.sleep(random.uniform(2, 4))  # Random sleep to avoid rate limiting
         
@@ -309,6 +352,7 @@ def scrape_reddit_thread_details(session, thread_url):
         }, timeout=10)
         
         if response.status_code != 200:
+            logger.warning(f"[Reddit] Failed to load thread: {thread_url}. Status: {response.status_code}")
             return {
                 "title": "[Error: Could not load]",
                 "posted": "Unknown",
@@ -362,6 +406,7 @@ def scrape_reddit_thread_details(session, thread_url):
                     continue
             
             comment_count = str(len(comments_data))
+            logger.debug(f"[Reddit] Extracted {comment_count} comments from {title[:30]}...")
 
         return {
             "title": title,
@@ -372,7 +417,7 @@ def scrape_reddit_thread_details(session, thread_url):
         }
 
     except Exception as e:
-        print(f"      !!! Error reading thread details: {e}")
+        logger.error(f"[Reddit] Error reading thread {thread_url}: {e}", exc_info=True)
         return {
             "title": "[Error]",
             "posted": "Unknown",
@@ -402,7 +447,7 @@ async def scrape_reddit(keyword: str, limit_pages: int = 2) -> tuple:
     """
     # Append " Review" to the keyword for Reddit search
     search_keyword = f"{keyword.strip()} Review"
-    print(f"\n[Reddit] Starting keyword search for: {search_keyword}")
+    logger.info(f"[Reddit] Starting keyword search for: {search_keyword}")
     
     base_url = "https://old.reddit.com/search"
     all_urls = []
@@ -411,8 +456,8 @@ async def scrape_reddit(keyword: str, limit_pages: int = 2) -> tuple:
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     
-    print(f'[Reddit] --- Starting search for: "{search_keyword}" ---')
-    
+    logger.info(f"[Reddit] --- Starting search for: {search_keyword} ---")
+
     # Use relevance sort and filter by month
     current_url = f"{base_url}?q={search_keyword}&sort=relevance&t=month"
     
@@ -421,14 +466,14 @@ async def scrape_reddit(keyword: str, limit_pages: int = 2) -> tuple:
     # Step 1: Collect URLs
     while current_url and page_counter < limit_pages:
             page_counter += 1
-            print(f"[Reddit]    Scraping Page {page_counter}...")
-            
+            logger.info(f"[Reddit] Scraping Search Page {page_counter}...")
+
             try:
                 response = requests.get(current_url, headers=headers, timeout=10)
                 
                 # Handle rate limiting
                 if response.status_code == 429:
-                    print("[Reddit]    !!! Rate limit hit (429). Sleeping for 30 seconds...")
+                    logger.warning(f"[Reddit] Rate limit hit (429). Sleeping for 30 seconds... (Keyword: {search_keyword})")
                     await asyncio.sleep(30)
                     continue
                 
@@ -439,7 +484,7 @@ async def scrape_reddit(keyword: str, limit_pages: int = 2) -> tuple:
                 results = soup.find_all("div", class_="search-result")
                 
                 if not results:
-                    print("[Reddit]    No results found on this page.")
+                    logger.info(f"[Reddit] No results found on page {page_counter}.")
                     break
                 
                 for result in results:
@@ -473,15 +518,15 @@ async def scrape_reddit(keyword: str, limit_pages: int = 2) -> tuple:
                     current_url = next_link
                     await asyncio.sleep(2)  # Rate limiting delay
                 else:
-                    print(f"[Reddit]    Reached last page (No 'Next' button found on Page {page_counter}).")
+                    logger.info(f"[Reddit] Reached end of search results at Page {page_counter}.")
                     current_url = None
             
             except Exception as e:
-                print(f'[Reddit]    Error on page {page_counter}: {e}')
+                logger.error(f"[Reddit] Error on search page {page_counter}: {e}", exc_info=True)
                 break
     
-    print(f"[Reddit] Found {len(all_urls)} URLs. Now scraping full content...")
-    
+    logger.info(f"[Reddit] Found {len(all_urls)} thread URLs. Beginning detail extraction...")
+
     # Step 2: Scrape full content from each URL
     session = requests.Session()
     scraped_posts = []
@@ -492,8 +537,8 @@ async def scrape_reddit(keyword: str, limit_pages: int = 2) -> tuple:
         scraped_posts.append(post_data)
     
     total_posts = len(scraped_posts)
-    print(f"[Reddit] Successfully scraped {total_posts} posts with full content for keyword: {search_keyword}")
-    
+    logger.info(f"[Reddit] Successfully finished. Scraped {total_posts} threads for keyword: {search_keyword}")
+
     return (
         "reddit",
         search_keyword,
@@ -521,8 +566,8 @@ async def scrape_google_search(product_name: str) -> tuple:
             - total_results: Number of results fetched
     """
     query = f"{product_name} Review"
-    print(f"\n[Google Search] Starting search for: {query}")
-    
+    logger.info(f"[Google Search] Starting search for: {query}")
+
     params = {
         "engine": "google",
         "q": query,
@@ -530,6 +575,7 @@ async def scrape_google_search(product_name: str) -> tuple:
     }
     
     try:
+        logger.debug(f"Requesting Google Search results for query: {query}")
         search = GoogleSearch(params)
         results = search.get_dict()
         
@@ -555,8 +601,8 @@ async def scrape_google_search(product_name: str) -> tuple:
             
             processed_results.append(result_data)
         
-        print(f"[Google Search] Successfully fetched {len(processed_results)} results")
-        
+        logger.info(f"[Google Search] Successfully fetched {len(processed_results)} results")
+
         return (
             "google_search",
             query,
@@ -564,7 +610,7 @@ async def scrape_google_search(product_name: str) -> tuple:
             len(processed_results)
         )
     except Exception as e:
-        print(f"[Google Search] Error: {e}")
+        logger.error(f"[Google Search] Error searching for {query}: {e}", exc_info=True)
         return (
             "google_search",
             query,
@@ -588,7 +634,10 @@ def convert_reviews_to_toon(reviews: list, source_type: str) -> str:
         TOON formatted string with header and data rows
     """
     if not reviews:
+        logger.warning(f"[TOON] Transformation skipped: No data for {source_type}")
         return ""
+    
+    logger.debug(f"[TOON] Converting {len(reviews)} items from {source_type} to TOON format")
     
     if source_type == "google_play_store":
         header = "rating | snippet | likes | iso_date"
@@ -660,13 +709,14 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
     Returns:
         Structured sentiment analysis dictionary
     """
-    print(f"[TOON Parser] Starting TOON parsing...")
+    
+    logger.info("[TOON Parser] Starting extraction of structured data from Gemini response...")
     
     # Schema: type | category | title | description | frequency | severity | sample_reviews | recommendation | priority_score | sources
     lines = toon_text.strip().split('\n')
     
     if not lines:
-        print(f"[TOON Parser] Error: Empty TOON text")
+        logger.error("[TOON Parser] Failed: Gemini returned an empty text string.")
         return None
     
     # Find header line
@@ -677,7 +727,7 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
             break
     
     if header_idx == -1:
-        print(f"[TOON Parser] Warning: No header found, assuming first line is header")
+        logger.warning("[TOON Parser] No clear header found in AI response. Attempting to parse from line 0.")
         header_idx = 0
     
     # Parse findings
@@ -693,7 +743,7 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
         parts = [p.strip() for p in line.split('|')]
         
         if len(parts) < 3:  # Need at least type, category, title
-            print(f"[TOON Parser] Warning: Skipping malformed row {line_num} (too few columns): {line[:100]}")
+            logger.warning(f"[TOON Parser] Skipping malformed row {line_num} (Insufficient columns): {line[:80]}...")
             skipped_rows += 1
             continue
         
@@ -768,14 +818,14 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
             findings.append(finding)
             
         except Exception as e:
-            print(f"[TOON Parser] Warning: Error parsing row {line_num}: {e}")
+            logger.error(f"[TOON Parser] Critical error parsing row {line_num}: {e}", exc_info=True)
             skipped_rows += 1
             continue
     
-    print(f"[TOON Parser] Parsed {len(findings)} findings, skipped {skipped_rows} malformed rows")
-    
+    logger.info(f"[TOON Parser] Parsing Summary: {len(findings)} findings captured, {skipped_rows} rows rejected.")
+
     if not findings:
-        print(f"[TOON Parser] Error: No valid findings parsed")
+        logger.error("[TOON Parser] Final result is empty. No valid findings were extracted from the text.")
         return None
     
     # Group findings by type
@@ -891,6 +941,15 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
             "average_rating": round(avg_rating, 2),
             "total_reviews_analyzed": total_reviews
         },
+        "summary_counts": {
+            "bugs": len(bugs),
+            "features": len(feature_requests),
+            "requirements": len(requirements),
+            "usability": len(usability_frictions),
+            "pain_points": len(pain_points),
+            "positive": len(positive_reviews),
+            "ai_insights": len(ai_insights),
+         },
         "bugs": bugs,
         "feature_requests": feature_requests,
         "requirements": requirements,
@@ -902,10 +961,7 @@ def _parse_toon_findings(toon_text: str, scrape_results: list, data_summary: dic
         "key_insights": key_insights
     }
     
-    print(f"[TOON Parser] Successfully parsed into structured analysis:")
-    print(f"[TOON Parser]   - Bugs: {len(bugs)}, Features: {len(feature_requests)}, Requirements: {len(requirements)}")
-    print(f"[TOON Parser]   - Usability: {len(usability_frictions)}, Pain Points: {len(pain_points)}")
-    print(f"[TOON Parser]   - Positive: {len(positive_reviews)}, AI Insights: {len(ai_insights)}")
+    logger.info(f"[TOON Parser] Successfully generated analysis: {len(findings)} total insights extracted.")
     
     return analysis
 
@@ -929,8 +985,11 @@ def build_gemini_query(scrape_results: list) -> tuple[str, dict]:
         Tuple of (combined_query: str, data_summary: dict)
     """
     if not scrape_results:
+        logger.warning("[Query Builder] No scrape results provided. Query will be empty.")
         return "", {}
     
+    logger.info(f"[Query Builder] Compiling data from {len(scrape_results)} sources for Gemini.")
+
     sections = []
     data_summary = {}
     
@@ -1013,6 +1072,8 @@ Results (TOON format):
     
     combined_query = "\n\n".join(sections)
     
+    logger.info(f"[Query Builder] Query built successfully. Total size: {len(combined_query)} characters.")
+
     return combined_query, data_summary
 
 
@@ -1082,8 +1143,8 @@ async def analyze_sentiment_with_gemini(combined_query: str, data_summary: dict,
     """
     # Identify sources from scrape_results
     sources = [result[0] for result in scrape_results if result]
-    print(f"\n[Gemini] Starting sentiment analysis for {len(sources)} source(s)")
-    
+    logger.info(f"[Gemini] Starting sentiment analysis for {len(sources)} sources.")
+
     try:
         # Create Gemini client
         client, model_name, generate_config = create_gemini_client_with_tools()
@@ -1099,13 +1160,13 @@ async def analyze_sentiment_with_gemini(combined_query: str, data_summary: dict,
         
         # Estimate token count (rough: 1 token ≈ 4 characters)
         estimated_tokens = len(combined_text) // 4
-        print(f"[Gemini] Estimated input tokens: ~{estimated_tokens}")
-        
+        logger.info(f"[Gemini] Estimated input tokens: ~{estimated_tokens}")
+
         # If data is too large, use batch processing
         MAX_TOKENS_PER_REQUEST = 200000
         
         if estimated_tokens > MAX_TOKENS_PER_REQUEST:
-            print(f"[Gemini] Large dataset detected. Using batch processing...")
+            logger.info(f"[Gemini] Large dataset detected. Using batch processing...")
             return await _analyze_sentiment_batch_processing(model_name, scrape_results, combined_text, data_summary, product_name, max_urls_per_batch)
         
         # Extract Google Search URLs (limit to 15)
@@ -1132,7 +1193,7 @@ Choose platforms based on the product type and where reviews are likely to be fo
 Include findings from social media in your analysis.
 """
         
-        print(f"[Gemini] Google Search URLs to analyze: {len(google_urls)}")
+        logger.info(f"[Gemini] Google Search URLs to analyze: {len(google_urls)}")
         
         prompt = f"""You are an expert app analyst specializing in user feedback analysis.
 
@@ -1196,7 +1257,7 @@ Remember:
             )
         ]
         
-        print(f"[Gemini] Sending request to {model_name}...")
+        logger.info(f"[Gemini] Sending request to {model_name}...")
         
         # Run async streaming call to Gemini
         loop = asyncio.get_event_loop()
@@ -1218,13 +1279,13 @@ Remember:
         # Save raw TOON output to file
         with open("sentiment_analysis_toon.txt", "w", encoding="utf-8") as f:
             f.write(analysis_text)
-        print(f"[Gemini] Raw TOON output saved to sentiment_analysis_toon.txt")
+        logger.info(f"[Gemini] Raw TOON output saved to sentiment_analysis_toon.txt")
         
         # Parse TOON format response
         analysis_json = _parse_toon_findings(analysis_text, scrape_results, data_summary)
         
         if analysis_json is not None:
-            print(f"[Gemini] Sentiment analysis completed for sources: {', '.join(sources)}")
+            logger.info(f"[Gemini] Sentiment analysis completed for sources: {', '.join(sources)}")
             
             return {
                 "sources": sources,
@@ -1234,8 +1295,8 @@ Remember:
             }
         
         # If parsing failed, return raw text for debugging
-        print(f"[Gemini] Warning: Could not parse TOON response.")
-        print(f"[Gemini] First 500 chars of response: {analysis_text[:500]}")
+        logger.info(f"[Gemini] Warning: Could not parse TOON response.")
+        logger.info(f"[Gemini] First 500 chars of response: {analysis_text[:500]}")
         return {
             "sources": sources,
             "sentiment_analysis": {"text": analysis_text},
@@ -1244,9 +1305,7 @@ Remember:
         }
     
     except Exception as e:
-        print(f"[Gemini] Error during sentiment analysis: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"[Gemini] Critical failure: {e}", exc_info=True)
         return {
             "error": str(e),
             "sources": sources if 'sources' in dir() else []
@@ -1269,8 +1328,7 @@ async def _analyze_sentiment_batch_processing(model_name: str, scrape_results: l
     Returns:
         Dictionary containing aggregated sentiment analysis results with 7-type categorization
     """
-    print(f"[Gemini] Processing large dataset in batches...")
-    
+    logger.info(f"[Gemini] Processing large dataset in batches...")
     # Create Gemini client
     client, model_name, generate_config = create_gemini_client_with_tools()
     
@@ -1280,8 +1338,8 @@ async def _analyze_sentiment_batch_processing(model_name: str, scrape_results: l
     # Use TOON text directly
     combined_text = toon_text
     total_size = len(combined_text)
-    print(f"[Gemini] Total TOON text size: {total_size:,} characters (~{total_size // 4:,} tokens)")
-    print(f"[Gemini] Google Search URLs to analyze: {len(google_urls)}")
+    logger.info(f"[Gemini] Total TOON text size: {total_size:,} characters (~{total_size // 4:,} tokens)")
+    logger.info(f"[Gemini] Google Search URLs to analyze: {len(google_urls)}")
     
     # Split into chunks based on token limits
     # Rough estimate: 1 token ≈ 4 characters, target ~150k tokens per batch (conservative for 200K limit)
@@ -1389,7 +1447,7 @@ Output ONLY the TOON table (header + data rows). NO JSON, NO markdown, NO explan
                 "chars_processed": len(batch_text)
             }
             batch_results.append(batch_result)
-            print(f"[Gemini] Processed {batch_info} ({len(batch_text):,} chars)")
+            logger.info(f"[Gemini] Processed {batch_info} ({len(batch_text):,} chars)")
             
             # Move to next batch
             start_idx = end_idx
@@ -1398,13 +1456,11 @@ Output ONLY the TOON table (header + data rows). NO JSON, NO markdown, NO explan
             # Rate limiting: Add delay between batches to avoid quota exhaustion
             # Free tier: 10 requests per minute, so wait 7 seconds between requests
             if start_idx < total_size:
-                print(f"[Gemini] Waiting 7 seconds to avoid rate limit...")
+                logger.info(f"[Gemini] Waiting 7 seconds to avoid rate limit...")
                 await asyncio.sleep(7)
                 
         except Exception as e:
-            print(f"[Gemini] Error processing batch {batch_num}: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"[Gemini] Failed at batch {batch_num}: {e}")
             # Skip this batch and continue
             start_idx = end_idx
             batch_num += 1
@@ -1427,7 +1483,7 @@ def _aggregate_batch_results(batch_results: list, scrape_results: list, data_sum
     Returns:
         Aggregated sentiment analysis dictionary with comprehensive categorization
     """
-    print(f"[Gemini] Aggregating results from {len(batch_results)} batches...")
+    logger.info(f"[Gemini] Aggregating results from {len(batch_results)} batches...")
     
     # Combine all TOON text from batches
     combined_toon = []
@@ -1453,18 +1509,18 @@ def _aggregate_batch_results(batch_results: list, scrape_results: list, data_sum
     
     # Parse combined TOON
     combined_toon_text = '\n'.join(combined_toon)
-    print(f"[Gemini] Combined TOON text: {len(combined_toon)} lines")
+    logger.info(f"[Gemini] Combined TOON text: {len(combined_toon)} lines")
     
     # Save combined raw TOON output to file
     with open("sentiment_analysis_toon.txt", "w", encoding="utf-8") as f:
         f.write(combined_toon_text)
-    print(f"[Gemini] Raw TOON output saved to sentiment_analysis_toon.txt")
+    logger.info(f"[Gemini] Raw TOON output saved to sentiment_analysis_toon.txt")
     
     analysis = _parse_toon_findings(combined_toon_text, scrape_results, data_summary)
     
     if analysis is None:
         # Fallback: return empty structure
-        print(f"[Gemini] Warning: Failed to parse combined TOON. Returning empty structure.")
+        logger.warning(f"[Gemini] Warning: Failed to parse combined TOON. Returning empty structure.")
         return {
             "sources": [result[0] for result in scrape_results],
             "sentiment_analysis": {
@@ -1515,7 +1571,7 @@ def clean_json_response(response_text: str) -> str:
     
     if start_idx != -1 and end_idx != -1:
         response_text = response_text[start_idx:end_idx + 1]
-    
+        
     return response_text.strip()
 
 
@@ -1523,7 +1579,7 @@ async def perform_prioritization(toon_content: str, method: str, duration: int, 
     """
     Uses Gemini to prioritize tasks and returns a JSON string.
     """
-    print(f"\n[Prioritization] Starting {method} prioritization with Gemini...")
+    logger.info(f"Starting {method} prioritization. Goal: '{business_goal}', Budget: {budget}hrs")
     
     # Create Gemini client
     client, model_name, generate_config = create_gemini_client_with_tools()
@@ -1605,43 +1661,46 @@ async def perform_prioritization(toon_content: str, method: str, duration: int, 
 async def main():
     """Main function to collect user inputs and execute scrapers conditionally."""
     
-    print("=" * 60)
-    print("Multi-Source Scraper with Sentiment Analysis")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Multi-Source Scraper with Sentiment Analysis")
+    logger.info("=" * 60)
     
     # Collect all user inputs upfront
-    print("\n" + "=" * 60)
-    print("PRODUCT INFORMATION")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("PRODUCT INFORMATION")
+    logger.info("=" * 60)
     product_name = input("Enter product name (used for Reddit and Google Search): ").strip()
-    
-    print("\n" + "=" * 60)
-    print("GOOGLE PLAY STORE (Optional)")
-    print("=" * 60)
+    logger.info({product_name})
+
+    logger.info("\n" + "=" * 60)
+    logger.info("GOOGLE PLAY STORE (Optional)")
+    logger.info("=" * 60)
     google_product_id = input("Product ID (e.g., com.google.android.youtube) [press Enter to skip]: ").strip()
+    logger.info({google_product_id})
     google_platform = ""
     if google_product_id:
-        google_platform = input("Platform (phone/tablet/tv/wearables/auto/chromebook) [default: phone]: ").strip().lower()
+        google_platform = input("Platform (phone/tablet/chromebook) [default: phone]: ").strip().lower()
         if not google_platform:
             google_platform = "phone"
-            print(f"Using default platform: {google_platform}")
+            logger.info(f"Using default platform: {google_platform}")
     
-    print("\n" + "=" * 60)
-    print("APPLE APP STORE (Optional)")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("APPLE APP STORE (Optional)")
+    logger.info("=" * 60)
     apple_product_id = input("Product ID (e.g., 544007664) [press Enter to skip]: ").strip()
+    logger.info(apple_product_id)
     apple_country = ""
     if apple_product_id:
         country_input = input("Country (code like 'us' or name like 'United States') [default: us]: ").strip()
         if not country_input:
             country_input = "us"
         apple_country = get_country_code(country_input)
-        print(f"Using country code: {apple_country}")
+        logger.info(f"Using country code: {apple_country}")
     
     # Configuration for URL batch processing
-    print("\n" + "=" * 60)
-    print("ADVANCED CONFIGURATION (Optional)")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("ADVANCED CONFIGURATION (Optional)")
+    logger.info("=" * 60)
     max_urls_per_batch = 20  # Default
     
     # Determine execution mode based on inputs
@@ -1665,13 +1724,13 @@ async def main():
         tasks_to_run.append(scrape_google_search(product_name))
     
     if not tasks_to_run:
-        print("\nNo valid inputs provided. Exiting.")
+        logger.info("\nNo valid inputs provided. Exiting.")
         return
     
     # Execute scrapers (async if multiple, sync if single)
-    print(f"\n{'=' * 60}")
-    print(f"Executing {len(tasks_to_run)} scraper(s)...")
-    print(f"{'=' * 60}")
+    logger.info(f"\n{'=' * 60}")
+    logger.info(f"Executing {len(tasks_to_run)} scraper(s)...")
+    logger.info(f"{'=' * 60}")
     
     # Wait for all scrapers to complete
     if len(tasks_to_run) > 1:
@@ -1685,7 +1744,7 @@ async def main():
     scrape_results = []
     for result in results:
         if isinstance(result, Exception):
-            print(f"Error in scraper: {result}")
+            logger.info(f"Error in scraper: {result}")
             continue
         
         # Result is a tuple: (source, ..., data, total)
@@ -1699,46 +1758,46 @@ async def main():
     
     # Perform combined sentiment analysis on all results
     if scrape_results:
-        print(f"\n{'=' * 60}")
-        print(f"All {len(scrape_results)} scraper(s) completed.")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"All {len(scrape_results)} scraper(s) completed.")
+        logger.info(f"{'=' * 60}")
         
         # Build combined query with metadata and TOON-formatted reviews
-        print(f"\n{'=' * 60}")
-        print("BUILDING COMBINED QUERY (METADATA + TOON)")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info("BUILDING COMBINED QUERY (METADATA + TOON)")
+        logger.info(f"{'=' * 60}")
         combined_query, data_summary = build_gemini_query(scrape_results)
         
         if combined_query:
-            print(f"\n[TOON] Conversion successful!")
-            print(f"[TOON] Combined query length: {len(combined_query):,} characters")
-            print(f"[TOON] Estimated tokens: ~{len(combined_query) // 4:,} tokens")
-            print(f"\n{'=' * 60}")
-            print("COMBINED QUERY OUTPUT (METADATA + TOON):")
-            print(f"{'=' * 60}")
-            print(combined_query)
-            print(f"{'=' * 60}")
+            logger.info(f"\n[TOON] Conversion successful!")
+            logger.info(f"[TOON] Combined query length: {len(combined_query):,} characters")
+            logger.info(f"[TOON] Estimated tokens: ~{len(combined_query) // 4:,} tokens")
+            logger.info(f"\n{'=' * 60}")
+            logger.info("COMBINED QUERY OUTPUT (METADATA + TOON):")
+            logger.info(f"{'=' * 60}")
+            logger.info(combined_query)
+            logger.info(f"{'=' * 60}")
             
             # Save TOON format to file
             toon_filename = "scraped_data.txt"
             with open(toon_filename, "w", encoding="utf-8") as f:
                 f.write(combined_query)
-            print(f"\nINPUT DATA TOON format saved to {toon_filename}")
+            logger.info(f"\nINPUT DATA TOON format saved to {toon_filename}")
             
             # Display data summary
             if data_summary:
-                print(f"\nData Summary:")
+                logger.info(f"\nData Summary:")
                 for source, stats in data_summary.items():
                     source_name = source.replace("_", " ").title()
                     if "analyzed_reviews" in stats:
-                        print(f"  {source_name}: {stats.get('analyzed_reviews', 0)} reviews")
+                        logger.info(f"  {source_name}: {stats.get('analyzed_reviews', 0)} reviews")
                     elif "analyzed_items" in stats:
-                        print(f"  {source_name}: {stats.get('analyzed_items', 0)} items")
+                        logger.info(f"  {source_name}: {stats.get('analyzed_items', 0)} items")
         else:
-            print("[TOON] Conversion failed or no data to convert")
+            logger.info("[TOON] Conversion failed or no data to convert")
         
         # Run Gemini API sentiment analysis (with product_name for social search)
-        print(f"\nCombining results for sentiment analysis...")
+        logger.info(f"\nCombining results for sentiment analysis...")
         sentiment_result = await analyze_sentiment_with_gemini(
             combined_query, 
             data_summary, 
@@ -1748,34 +1807,34 @@ async def main():
         )
         
         # Display combined results
-        print(f"\n{'=' * 60}")
-        print("COMBINED SENTIMENT ANALYSIS RESULTS")
-        print(f"{'=' * 60}\n")
+        logger.info(f"\n{'=' * 60}")
+        logger.info("COMBINED SENTIMENT ANALYSIS RESULTS")
+        logger.info(f"{'=' * 60}\n")
         
         if sentiment_result.get("error"):
-            print(f"Error in sentiment analysis: {sentiment_result['error']}\n")
+            logger.info(f"Error in sentiment analysis: {sentiment_result['error']}\n")
         else:
             # Save to JSON file
             analysis_filename = "sentiment_analysis.json"
             with open(analysis_filename, "w", encoding="utf-8") as f:
                 json.dump(sentiment_result, f, indent=2, ensure_ascii=False, separators=(',', ': '))
             
-            print(f"\n{'=' * 60}")
-            print(f"Analysis complete!")
-            print(f"Results saved to {analysis_filename} (structured JSON)")
+            logger.info(f"\n{'=' * 60}")
+            logger.info(f"Analysis complete!")
+            logger.info(f"Results saved to {analysis_filename} (structured JSON)")
             
             # ============================================================================
             # NEW ADDITION: Prioritization Step (JSON Output)
             # ============================================================================
-            print(f"\n{'=' * 60}")
+            logger.info(f"\n{'=' * 60}")
             proceed = input("Do you want to proceed with Task Prioritization? (yes/no): ").strip().lower()
             
             if proceed in ['yes', 'y']:
-                print("\n--- Prioritization Configuration ---")
+                logger.info("\n--- Prioritization Configuration ---")
                 
-                print("Select Prioritization Technique:")
-                print("1. Lean Prioritization (Value vs Effort)")
-                print("2. MoSCoW (Must, Should, Could, Won't)")
+                logger.info("Select Prioritization Technique:")
+                logger.info("1. Lean Prioritization (Value vs Effort)")
+                logger.info("2. MoSCoW (Must, Should, Could, Won't)")
                 method_choice = input("Enter choice (1 or 2): ").strip()
                 method = "Lean Prioritization" if method_choice == "1" else "MoSCoW"
                 
@@ -1797,7 +1856,7 @@ async def main():
                         toon_content = f.read()
                     
                     if not toon_content:
-                        print("Error: sentiment_analysis_toon.txt is empty.")
+                        logger.error("Error: sentiment_analysis_toon.txt is empty.")
                     else:
                         # Get JSON String
                         plan_json_str = await perform_prioritization(toon_content, method, duration, budget, business_goal)
@@ -1806,34 +1865,32 @@ async def main():
                             # Parse string to JSON object to ensure validity and allow pretty printing
                             plan_data = json.loads(plan_json_str)
                             
-                            print(f"\n{'=' * 60}")
-                            print("PRIORITIZATION PLAN (JSON)")
-                            print(f"{'=' * 60}\n")
-                            # Pretty print to console
-                            print(json.dumps(plan_data, indent=2))
+                            logger.info(f"\n{'=' * 60}")
+                            logger.info("PRIORITIZATION PLAN (JSON)")
+                            logger.info(f"{'=' * 60}\n")
                             
                             # Save to JSON file
                             output_file = "prioritization_plan.json"
                             with open(output_file, "w", encoding="utf-8") as f:
                                 json.dump(plan_data, f, indent=2, ensure_ascii=False)
-                            print(f"\n[Saved prioritization plan to {output_file}]")
-                            
+                            logger.info(f"\n[Saved prioritization plan to {output_file}]")
+
                         except json.JSONDecodeError as e:
-                            print("\n[Error] The AI response was not valid JSON. Saving raw response to prioritization_error.txt")
-                            print(f"[Error Details] {str(e)}")
+                            logger.info("\n[Error] The AI response was not valid JSON. Saving raw response to prioritization_error.txt")
+                            logger.info(f"[Error Details] {str(e)}")
                             with open("prioritization_error.txt", "w", encoding="utf-8") as f:
                                 f.write(plan_json_str)
 
                 except FileNotFoundError:
-                    print("Error: sentiment_analysis_toon.txt not found. Ensure analysis ran successfully.")
+                    logger.info("Error: sentiment_analysis_toon.txt not found. Ensure analysis ran successfully.")
             else:
-                print("Prioritization was skipped.")
+                logger.info("Prioritization was skipped.")
     else:
-        print("\nNo valid results to analyze.")
+        logger.info("\nNo valid results to analyze.")
     
-    print(f"{'=' * 60}")
-    print("All tasks completed!")
-    print(f"{'=' * 60}")
+    logger.info(f"{'=' * 60}")
+    logger.info("All tasks completed!")
+    logger.info(f"{'=' * 60}")
 
 if __name__ == "__main__":
     asyncio.run(main())

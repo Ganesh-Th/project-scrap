@@ -1291,7 +1291,8 @@ Remember:
                 "sources": sources,
                 "sentiment_analysis": analysis_json,
                 "data_summary": data_summary,
-                "processing_mode": "single_request"
+                "processing_mode": "single_request",
+                "toon_text": analysis_text
             }
         
         # If parsing failed, return raw text for debugging
@@ -1301,7 +1302,8 @@ Remember:
             "sources": sources,
             "sentiment_analysis": {"text": analysis_text},
             "data_summary": data_summary,
-            "parse_error": "TOON parsing failed"
+            "parse_error": "TOON parsing failed",
+            "toon_text": analysis_text
         }
     
     except Exception as e:
@@ -1542,14 +1544,16 @@ def _aggregate_batch_results(batch_results: list, scrape_results: list, data_sum
                 "key_insights": ["Failed to parse batch results"]
             },
             "data_summary": data_summary,
-            "processing_mode": f"batch_processing ({len(batch_results)} batches) - parse failed"
+            "processing_mode": f"batch_processing ({len(batch_results)} batches) - parse failed",
+            "toon_text": combined_toon_text
         }
     
     return {
         "sources": [result[0] for result in scrape_results],
         "sentiment_analysis": analysis,
         "data_summary": data_summary,
-        "processing_mode": f"batch_processing ({len(batch_results)} batches)"
+        "processing_mode": f"batch_processing ({len(batch_results)} batches)",
+        "toon_text": combined_toon_text
     }
 
 
@@ -1851,12 +1855,11 @@ async def main():
                 business_goal = input("Enter current Business Goal: ").strip()
                 
                 try:
-                    # We need the TOON data from the file (or memory if you prefer)
-                    with open("sentiment_analysis_toon.txt", "r", encoding="utf-8") as f:
-                        toon_content = f.read()
+                    # Use TOON data directly from sentiment analysis result
+                    toon_content = sentiment_result.get("toon_text", "")
                     
                     if not toon_content:
-                        logger.error("Error: sentiment_analysis_toon.txt is empty.")
+                        logger.error("Error: No TOON data available from sentiment analysis.")
                     else:
                         # Get JSON String
                         plan_json_str = await perform_prioritization(toon_content, method, duration, budget, business_goal)
@@ -1881,8 +1884,8 @@ async def main():
                             with open("prioritization_error.txt", "w", encoding="utf-8") as f:
                                 f.write(plan_json_str)
 
-                except FileNotFoundError:
-                    logger.info("Error: sentiment_analysis_toon.txt not found. Ensure analysis ran successfully.")
+                except Exception as e:
+                    logger.error(f"Error during prioritization: {e}")
             else:
                 logger.info("Prioritization was skipped.")
     else:

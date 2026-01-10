@@ -1,117 +1,226 @@
-# AI Review Intelligence & Prioritization System (Demo)
+# Multi-Source Review Scraper API
 
-> A demo web application that aggregates app reviews and uses AI to transform unstructured feedback into actionable, prioritized product tasks.
+A production-ready FastAPI application for scraping app reviews from multiple sources and performing AI-powered sentiment analysis using Google Gemini.
 
-## 🚀 Overview
+## ✨ Features
 
-Product teams receive thousands of reviews across app stores and platforms, but manually extracting insights and prioritizing work is slow and error-prone.
+- **Multi-Source Scraping**: Google Play Store, Apple App Store, Reddit, Google Search
+- **AI Sentiment Analysis**: Powered by Google Gemini with URL context and social media search
+- **Real-time Progress**: WebSocket updates for task monitoring
+- **Task Persistence**: Redis-backed task storage with 24-hour TTL
+- **Task Prioritization**: MoSCoW and Lean prioritization frameworks
+- **Async Architecture**: Non-blocking I/O with `httpx` and `asyncio`
 
-This project demonstrates an **end-to-end system** that:
-- Ingests app reviews asynchronously
-- Analyzes them using AI (sentiment + categorization)
-- Groups similar feedback into actionable tasks
-- Prioritizes tasks using product frameworks (RICE / MoSCoW)
-- Visualizes insights in a dashboard
-- Exports structured results
+## 🏗️ Architecture
 
-> ⚠️ **Note:** This is a **portfolio/demo project**, not a production SaaS.
+```
+app/
+├── api/v1/endpoints/      # API route handlers
+│   └── scraper.py         # Main scraper endpoints
+├── core/                  # Core infrastructure
+│   ├── redis_store.py     # Redis task persistence
+│   └── connection_manager.py  # WebSocket management
+├── models/                # Pydantic data models
+│   ├── requests.py        # Request validation
+│   └── responses.py       # Response schemas
+├── services/              # Business logic
+│   ├── google_play.py     # Google Play scraper
+│   ├── apple_store.py     # Apple Store scraper
+│   ├── reddit.py          # Async Reddit scraper
+│   ├── google_search.py   # Google Search scraper
+│   ├── sentiment.py       # Gemini sentiment analysis
+│   ├── data_processor.py  # TOON format conversion
+│   └── prioritization.py  # Task prioritization
+├── utils/                 # Utility functions
+│   ├── constants.py       # Country mappings, user agents
+│   └── helpers.py         # Helper functions
+├── config.py              # Pydantic Settings configuration
+├── logging_config.py      # Logging setup
+└── main.py                # FastAPI app initialization
+```
 
-## 🎯 Key Features
+## 🚀 Quick Start
 
-### Review Ingestion
-- Accepts App Store & Play Store app links
-- Uses third-party SERP APIs for demo review ingestion
-- Filters reviews by date range
-- Asynchronous background jobs with progress tracking
-- Review de-duplication and update handling
+### Prerequisites
 
-### AI Analysis
-- Automatic language detection
-- Sentence-level sentiment analysis (Positive / Neutral / Negative / Mixed)
-- Multi-label category classification:
-  - Bug
-  - Feature Request
-  - Usability Friction
-  - Requirement
-  - Praise
-  - Other
-- Confidence scoring and keyword highlighting
+- Python 3.10+
+- Redis server (local or remote)
+- API keys: SerpAPI, Google Gemini
 
-### Theme Clustering & Task Generation
-- Converts noisy reviews into meaningful themes
-- Groups similar feedback using embeddings
-- Creates one actionable task per theme
-- Attaches supporting review examples and sentiment distribution
+### Installation
 
-### Prioritization
-- Supports RICE and MoSCoW frameworks
-- AI suggests initial values
-- Human-in-the-loop confirmation
-- Bias normalization to avoid review-volume dominance
+1. **Clone and navigate to the project:**
+   ```bash
+   cd project-scrap
+   ```
 
-### Dashboard
-- Overview metrics and trends
-- Tasks grouped by category
-- Prioritized backlog view
-- Raw review drill-down with AI explanations
+2. **Create virtual environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   # or
+   .\venv\Scripts\activate  # Windows
+   ```
 
-### Export
-- CSV (tasks & priorities)
-- JSON (raw + processed data)
-- Optional PDF summary
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 🧱 Architecture (High Level)
+4. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
 
-Frontend (Next.js)
-→ Backend API (FastAPI)
-→ Async Queue (Celery + Redis)
-→ PostgreSQL Database
+5. **Start Redis:** (if not running)
+   ```bash
+   # Using Docker
+   docker run -d -p 6379:6379 redis:alpine
+   
+   # Or install Redis locally
+   ```
 
-## 🔌 Review Sources
+6. **Run the application:**
+   ```bash
+   python run.py
+   ```
 
-This project uses third-party SERP APIs (e.g., SerpApi) for review ingestion **for demonstration purposes only**.
+7. **Access the API:**
+   - Swagger UI: http://localhost:8000/docs
+   - ReDoc: http://localhost:8000/redoc
+   - Health: http://localhost:8000/health
 
-In production, these would be replaced with:
-- Google Play Developer API (owned apps only)
-- App Store Connect API (owned apps only)
-- User-uploaded datasets
-- Licensed third-party providers
+## 📡 API Endpoints
 
-## 🤖 AI Design Decisions
+### Core Endpoints
 
-- Sentiment is separate from category
-- Multi-label classification
-- Fixed taxonomy enforcement
-- Explainable AI outputs
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/scrape` | Start multi-source scrape task |
+| GET | `/api/v1/task/{task_id}` | Get task status and result |
+| POST | `/api/v1/prioritize` | Prioritize findings from analysis |
+| WS | `/ws/task/{task_id}` | WebSocket for real-time progress |
 
-## 🚫 Non-Goals
+### Single-Source Endpoints
 
-- Real-time syncing
-- Multi-user collaboration
-- Enterprise compliance guarantees
-- Competitor benchmarking claims
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/scrape/google-play` | Google Play only |
+| POST | `/api/v1/scrape/apple-store` | Apple Store only |
+| POST | `/api/v1/scrape/reddit` | Reddit only |
+| POST | `/api/v1/scrape/google-search` | Google Search only |
 
-## 🛠️ Tech Stack
+## 🔧 Usage Examples
 
-- Frontend: Next.js (TypeScript)
-- Backend: FastAPI (Python)
-- Queue: Celery + Redis
-- Database: PostgreSQL
-- AI: OpenAI API / Embeddings
-- Review Ingestion: Third-party SERP APIs (demo)
+### Start a Multi-Source Scrape
 
-## 📈 What This Demonstrates
+```bash
+curl -X POST http://localhost:8000/api/v1/scrape \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_name": "YouTube",
+    "google_play": {
+      "product_id": "com.google.android.youtube",
+      "platform": "phone"
+    },
+    "apple_store": {
+      "product_id": "544007664",
+      "country": "us"
+    },
+    "include_reddit": true,
+    "include_google_search": true
+  }'
+```
 
-- Async system design
-- AI processing pipelines
-- Product prioritization frameworks
-- Dashboard storytelling
-- Engineering trade-off awareness
+**Response:**
+```json
+{
+  "task_id": "abc123-def456",
+  "status": "pending",
+  "message": "Scraping task started for sources: google_play_store, apple_app_store, reddit, google_search",
+  "websocket_url": "/ws/task/abc123-def456"
+}
+```
 
-## 📎 Disclaimer
+### Check Task Status
 
-This project is for **learning and portfolio purposes only**. Any production implementation must use compliant data sources.
+```bash
+curl http://localhost:8000/api/v1/task/abc123-def456
+```
+
+### WebSocket Progress (JavaScript)
+
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws/task/abc123-def456');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log(`Progress: ${data.progress}% - ${data.message}`);
+  
+  if (data.status === 'completed') {
+    console.log('Task completed! Fetch results...');
+    ws.close();
+  }
+};
+```
+
+### Prioritize Tasks
+
+```bash
+curl -X POST http://localhost:8000/api/v1/prioritize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_id": "abc123-def456",
+    "method": "MoSCoW",
+    "duration": 14,
+    "budget": 160,
+    "business_goal": "Improve user retention"
+  }'
+```
+
+## 📊 Analysis Output
+
+The AI categorizes findings into 7 types:
+
+| Type | Description |
+|------|-------------|
+| `bug` | Technical issues, crashes, errors |
+| `feature_request` | User-requested new features |
+| `requirement` | Must-have missing features |
+| `usability_friction` | UX issues causing frustration |
+| `pain_point` | General user dissatisfaction |
+| `positive_review` | Things users love |
+| `ai_insight` | AI-discovered patterns |
+
+## ⚙️ Configuration
+
+Environment variables (see `.env.example`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERPAPI_KEY` | - | SerpAPI key (required) |
+| `GEMINI_API_KEY` | - | Google Gemini key (required) |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
+| `HOST` | `0.0.0.0` | Server host |
+| `PORT` | `8000` | Server port |
+| `DEBUG` | `false` | Enable debug mode |
+
+## 🔮 Future Enhancements
+
+These features are documented for future implementation:
+
+1. **Docker & Compose**: Containerized deployment
+2. **pytest Suite**: Unit and integration tests
+3. **GitHub Actions CI**: Automated testing and linting
+4. **API Key Authentication**: Secure endpoint access
+5. **Nginx Reverse Proxy**: Production deployment
+6. **Custom OpenAPI Spec**: Enhanced documentation
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
-*Author note: The core value of this project is how unstructured feedback is transformed into prioritized product insights.*
+Built with ❤️ using FastAPI, Redis, and Google Gemini

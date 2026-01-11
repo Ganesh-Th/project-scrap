@@ -1,14 +1,19 @@
 """Helper functions."""
+import re
+
 
 def clean_json_response(response_text: str) -> str:
-    """Extract JSON from response, removing markdown blocks and surrounding text."""
+    """Extract JSON from response, removing markdown blocks, control characters, and surrounding text."""
+    if not response_text:
+        return "{}"
+    
+    # Remove control characters except newline, tab, carriage return
+    response_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', response_text)
+    
     # Remove markdown code blocks
-    if "```json" in response_text:
-        response_text = response_text.split("```json")[1].split("```")[0]
-    elif "```" in response_text:
-        parts = response_text.split("```")
-        if len(parts) > 1:
-            response_text = parts[1]
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_text)
+    if json_match:
+        response_text = json_match.group(1)
     
     # Extract JSON object
     start_idx = response_text.find('{')

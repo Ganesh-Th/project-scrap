@@ -88,14 +88,14 @@ class RedisTaskStore:
         task_data = {
             "task_id": task_id,
             "status": TaskStatus.PENDING.value,
-            "progress": 0,
+            "progress": "0",
             "message": "Task created",
             "created_at": datetime.utcnow().isoformat(),
-            "completed_at": None,
+            "completed_at": "",
             "sources": json.dumps(initial_data.get("sources", [])),
             "request": json.dumps(initial_data.get("request", {})),
-            "result": None,
-            "error": None
+            "result": "",
+            "error": ""
         }
         
         await self._client.hset(key, mapping=task_data)

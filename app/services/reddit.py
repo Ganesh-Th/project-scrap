@@ -239,7 +239,7 @@ async def scrape_reddit(keyword: str, limit_pages: int = 2) -> tuple:
 
         # Step 2: Scrape full content from each URL concurrently with rate limiting
         # Use semaphore to limit concurrent requests
-        semaphore = asyncio.Semaphore(settings.REDDIT_CONCURRENT_REQUESTS)
+        semaphore = asyncio.Semaphore(settings.REDDIT_CONCURRENT_LIMIT)
         
         # Create tasks for concurrent scraping
         tasks = [

@@ -108,10 +108,25 @@ async def perform_prioritization(
                 contents=prompt,
                 config=generate_config
             )
-            return response.text
+            return response.text if response else None
         
         response_text = await loop.run_in_executor(None, generate_content)
+        
+        if not response_text:
+            logger.error("Gemini returned empty response for prioritization")
+            return {
+                "error": "AI returned empty response. Please try again.",
+                "raw_response": ""
+            }
+        
         cleaned_json = clean_json_response(response_text)
+        
+        if not cleaned_json or cleaned_json == "{}":
+            logger.error(f"Failed to extract JSON from response: {response_text[:500]}")
+            return {
+                "error": "Failed to extract valid JSON from AI response",
+                "raw_response": response_text[:500]
+            }
         
         try:
             plan_data = json.loads(cleaned_json)

@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Sentiment Analyzer</title>
+    <style>
+        :root {
+            --color-primary: #8458B3;
+            --color-primary-hover: #9b6fc4;
+            --color-primary-active: #6d3e8c;
+            --color-bg-primary: #f5f2f9;
+            --color-bg-secondary: #ede7f5;
+            --color-surface: #ffffff;
+            --color-text-primary: #0c2340;
+            --color-text-secondary: #475569;
+            --color-border: #e0f2fe;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+            --color-bug: #ec4899;
+            --color-feature: #6366f1;
+            --color-requirement: #8b5cf6;
+            --color-friction: #f97316;
+            --color-positive: #10b981;
+            --space-8: 8px;
+            --space-12: 12px;
+            --space-16: 16px;
+            --space-24: 24px;
+            --space-32: 32px;
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f2f9 0%, #ede7f5 50%, #faf8fc 100%);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            padding: var(--space-16);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Premium Header Styles */
+        .premium-header {
+            background: linear-gradient(135deg, #8458B3 0%, #9b6fc4 50%, #7a4ca1 100%);
+            border-radius: var(--radius-lg);
+            padding: var(--space-32) var(--space-32);
+            margin-bottom: var(--space-32);
+            box-shadow: 0 10px 40px rgba(132, 88, 179, 0.2);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .premium-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(162, 128, 137, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            z-index: 0;
+        }
+
+        .premium-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: 10%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(162, 128, 137, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            z-index: 0;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+            gap: var(--space-32);
+            margin-bottom: var(--space-24);
+        }
+
+        .header-left {
+            flex: 1;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: var(--space-16);
+        }
+
+        .logo-icon {
+            font-size: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-md);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo-text h1 {
+            font-size: 2rem;
+            margin: 0;
+            font-weight: 700;
+            color: white;
+            margin-bottom: var(--space-4);
+        }
+
+        .tagline {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 500;
+        }
+
+        .header-right {
+            flex: 1;
+            text-align: right;
+        }
+
+        .feature-badges {
+            display: flex;
+            gap: var(--space-12);
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: flex;
+            align-items: center;
+            gap: var(--space-6);
+            background: rgba(255, 255, 255, 0.12);
+            padding: var(--space-8) var(--space-12);
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: white;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .badge:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(132, 88, 179, 0.2);
+        }
+
+        .badge-icon {
+            font-size: 1.1rem;
+        }
+
+        .header-description {
+            position: relative;
+            z-index: 1;
+            padding-top: var(--space-16);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header-description p {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* Enhanced Progress Container */
+        .progress-container {
+            margin-bottom: var(--space-32);
+        }
+
+        .progress-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 80px;
+            position: relative;
+            padding: var(--space-24);
+            background: var(--color-surface);
+            border-radius: 999px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 18%;
+            right: 18%;
+            height: 4px;
+            background: linear-gradient(90deg, #e5e7eb 0%, #c4b5fd 50%, #e5e7eb 100%);
+            transform: translateY(-50%);
+            z-index: 0;
+            border-radius: 999px;
+        }
+
+        .progress-step {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            background: #f3f4f6;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: var(--color-text-secondary);
+            margin: 0 auto 8px auto;
+            transition: all 0.25s ease;
+        }
+
+        .step-number.active {
+            background: linear-gradient(135deg, #4f46e5, #818cf8);
+            border-color: rgba(129, 140, 248, 0.4);
+            color: white;
+            box-shadow: 0 8px 18px rgba(129, 140, 248, 0.45);
+        }
+
+        .step-number.completed {
+            background: #ecfdf3;
+            border-color: #22c55e;
+            color: #16a34a;
+        }
+
+        .step-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 2px;
+        }
+
+        .step-description {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        .step-number.active ~ .step-label {
+            color: #4f46e5;
+        }
+
+        /* Card Container */
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.08);
+            padding: var(--space-32);
+            margin-bottom: var(--space-32);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card h2 {
+            font-size: 1.8rem;
+            margin-bottom: var(--space-24);
+            color: var(--color-text-primary);
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: var(--space-24);
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: var(--space-8);
+            color: var(--color-text-primary);
+            font-size: 0.95rem;
+        }
+
+        .required {
+            color: var(--color-error);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: var(--space-12) var(--space-16);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            background: var(--color-surface);
+            color: var(--color-text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #8458B3;
+            box-shadow: 0 0 0 3px rgba(132, 88, 179, 0.15);
+        }
+
+        .form-group input::placeholder {
+            color: var(--color-text-secondary);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-16);
+        }
+
+        /* Button Styles */
+        .button-group {
+            display: flex;
+            gap: var(--space-12);
+            margin-top: var(--space-32);
+            justify-content: space-between;
+        }
+
+        button {
+            padding: var(--space-12) var(--space-24);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: var(--space-8);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8458B3 0%, #9b6fc4 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(132, 88, 179, 0.35);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--color-bg-secondary);
+            color: var(--color-primary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #e2d6ff;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Results Display */
+        .results-container {
+            display: none;
+        }
+
+        .results-container.active {
+            display: block;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-16);
+            margin-bottom: var(--space-32);
+        }
+
+        .result-card {
+            background: var(--color-bg-primary);
+            padding: var(--space-16);
+            border-radius: var(--radius-md);
+            text-align: center;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-card.bug { border-color: var(--color-bug); }
+        .result-card.feature { border-color: var(--color-feature); }
+        .result-card.requirement { border-color: var(--color-requirement); }
+        .result-card.friction { border-color: var(--color-friction); }
+        .result-card.painpoint { border-color: var(--color-error); }
+        .result-card.positive { border-color: var(--color-positive); }
+
+        .result-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-8);
+        }
+
+        .result-card.bug .result-label { color: var(--color-bug); }
+        .result-card.feature .result-label { color: var(--color-feature); }
+        .result-card.requirement .result-label { color: var(--color-requirement); }
+        .result-card.friction .result-label { color: var(--color-friction); }
+        .result-card.painpoint .result-label { color: var(--color-error); }
+        .result-card.positive .result-label { color: var(--color-positive); }
+
+        .result-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: var(--space-8);
+        }
+
+        .result-subtitle {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* Data Display */
+        .data-section {
+            background: var(--color-bg-primary);
+            padding: var(--space-24);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-24);
+        }
+
+        .data-section h3 {
+            font-size: 1.3rem;
+            margin-bottom: var(--space-16);
+            color: var(--color-text-primary);
+        }
+
+        .review-item {
+            background: var(--color-surface);
+            padding: var(--space-16);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--space-12);
+            border-left: 4px solid var(--color-border);
+        }
+
+        .review-item:hover {
+            border-left-color: var(--color-primary);
+        }
+
+        .review-text {
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+
+        .review-badge {
+            display: inline-block;
+            padding: var(--space-4) var(--space-8);
+            background: var(--color-bg-secondary);
+            color: var(--color-primary);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: var(--space-8);
+        }
+
+        /* Loading State */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: var(--space-32);
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid var(--color-border);
+            border-top: 4px solid var(--color-primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto var(--space-16);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fecaca;
+            color: var(--color-error);
+            padding: var(--space-16);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-16);
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .premium-header {
+                padding: var(--space-24) var(--space-16);
+            }
+
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+                gap: var(--space-16);
+            }
+
+            .header-right {
+                text-align: center;
+            }
+
+            .feature-badges {
+                justify-content: center;
+            }
+
+            .logo-text h1 {
+                font-size: 1.5rem;
+            }
+
+            .card { padding: var(--space-16); }
+            .grid-2 { grid-template-columns: 1fr; }
+            .button-group { flex-direction: column; }
+            .result-grid { grid-template-columns: 1fr; }
+            .progress-bar { margin-bottom: var(--space-24); padding: var(--space-16); }
+            .step-label { font-size: 0.8rem; }
+            .progress-bar::before { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Premium Header with Gradient Background -->
+        <div class="premium-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="logo-section">
+                        <div class="logo-icon">🔍</div>
+                        <div class="logo-text">
+                            <h1>Review Sentiment Analyzer</h1>
+                            <span class="tagline">AI-Powered Review Intelligence</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="feature-badges">
+                        <div class="badge">
+                            <span class="badge-icon">⚡</span>
+                            <span class="badge-text">Fast Analysis</span>
+                        </div>
+                        <div class="badge">
+                            <span class="badge-icon">🤖</span>
+                            <span class="badge-text">AI-Powered</span>
+                        </div>
+                        <div class="badge">
+                            <span class="badge-icon">📊</span>
+                            <span class="badge-text">Data-Driven</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-description">
+                <p>Transform customer reviews into actionable insights. Analyze sentiment, identify patterns, and prioritize improvements with AI intelligence.</p>
+            </div>
+        </div>
+
+        <!-- Enhanced Progress Indicator -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-step">
+                    <div class="step-number active" id="step1-indicator">1</div>
+                    <div class="step-label">Data Collection</div>
+                    <div class="step-description">Gather & Analyze</div>
+                </div>
+                <div class="progress-step">
+                    <div class="step-number" id="step2-indicator">2</div>
+                    <div class="step-label">Prioritization</div>
+                    <div class="step-description">Plan & Execute</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Sentiment Analysis Input -->
+        <div class="card" id="step1-card">
+            <h2>📊 Step 1: Analyze Reviews</h2>
+            <p style="color: var(--color-text-secondary); margin-bottom: var(--space-24);">Enter your app details to fetch and analyze reviews from multiple sources</p>
+            
+            <div class="error" id="error-message"></div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="product-name">Product Name <span class="required">*</span></label>
+                    <input type="text" id="product-name" placeholder="e.g., Instagram" required>
+                </div>
+                <div class="form-group">
+                    <label for="country">Country <span class="required">*</span></label>
+                    <select id="country" required>
+                        <option value="">-- Select Country --</option>
+                        <option>United States</option>
+                        <option>United Kingdom</option>
+                        <option>Canada</option>
+                        <option>Australia</option>
+                        <option>Germany</option>
+                        <option>France</option>
+                        <option>Italy</option>
+                        <option>Spain</option>
+                        <option>Japan</option>
+                        <option>China</option>
+                        <option>India</option>
+                        <option>Brazil</option>
+                        <option>Mexico</option>
+                        <option>Russia</option>
+                        <option>South Korea</option>
+                        <option>Netherlands</option>
+                        <option>Sweden</option>
+                        <option>Norway</option>
+                        <option>Denmark</option>
+                        <option>Finland</option>
+                        <option>Poland</option>
+                        <option>Czech Republic</option>
+                        <option>Austria</option>
+                        <option>Switzerland</option>
+                        <option>Belgium</option>
+                        <option>Ireland</option>
+                        <option>New Zealand</option>
+                        <option>Singapore</option>
+                        <option>Hong Kong</option>
+                        <option>Taiwan</option>
+                        <option>Thailand</option>
+                        <option>Philippines</option>
+                        <option>Indonesia</option>
+                        <option>Malaysia</option>
+                        <option>Vietnam</option>
+                        <option>United Arab Emirates</option>
+                        <option>Saudi Arabia</option>
+                        <option>Israel</option>
+                        <option>Turkey</option>
+                        <option>South Africa</option>
+                        <option>Egypt</option>
+                        <option>Nigeria</option>
+                        <option>Kenya</option>
+                        <option>Argentina</option>
+                        <option>Chile</option>
+                        <option>Colombia</option>
+                        <option>Peru</option>
+                        <option>Venezuela</option>
+                        <option>Ukraine</option>
+                        <option>Romania</option>
+                        <option>Hungary</option>
+                        <option>Greece</option>
+                        <option>Portugal</option>
+                        <option>Bulgaria</option>
+                        <option>Croatia</option>
+                        <option>Slovakia</option>
+                        <option>Slovenia</option>
+                        <option>Estonia</option>
+                        <option>Latvia</option>
+                        <option>Lithuania</option>
+                        <option>Iceland</option>
+                        <option>Luxembourg</option>
+                        <option>Malta</option>
+                        <option>Cyprus</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="app-store-id">App Store ID <span class="required">*</span></label>
+                    <input type="text" id="app-store-id" placeholder="e.g., com.instagram.ios" required>
+                </div>
+                <div class="form-group">
+                    <label for="play-store-id">Play Store ID <span class="required">*</span></label>
+                    <input type="text" id="play-store-id" placeholder="e.g., com.instagram.android" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="platform">Platform <span class="required">*</span></label>
+                <select id="platform" required>
+                    <option value="">-- Select Platform --</option>
+                    <option value="phone">📱 Phone</option>
+                    <option value="tablet">📑 Tablet</option>
+                    <option value="chromebook">💻 Chromebook</option>
+                </select>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" id="analyze-btn" onclick="analyzeReviews()">
+                    🚀 Analyze Reviews
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Display -->
+        <div class="results-container" id="results-container">
+            <div class="card" id="results-card">
+                <h2>✨ Analysis Results</h2>
+                
+                <div class="result-grid" id="result-grid">
+                    <!-- Results will be injected here -->
+                </div>
+
+                <div id="detailed-results"></div>
+
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="resetForm()">← Back to Step 1</button>
+                    <button class="btn-primary" onclick="moveToStep2()">Continue to Prioritization →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Prioritization -->
+        <div class="card" id="step2-card" style="display: none;">
+            <h2>🎯 Step 2: Prioritization Strategy</h2>
+            <p style="color: var(--color-text-secondary); margin-bottom: var(--space-24);">Configure your prioritization framework to rank identified issues</p>
+
+            <div class="error" id="error-message-step2"></div>
+
+            <div class="form-group">
+                <label for="prioritization-technique">Prioritization Technique <span class="required">*</span></label>
+                <select id="prioritization-technique" required onchange="updatePrioritizationFields()">
+                    <option value="">-- Select Technique --</option>
+                    <option value="moscow">🎯 MoSCoW (Must, Should, Could, Won't)</option>
+                    <option value="lean">📊 Lean Prioritization (Impact vs Effort)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="timeframe">Sprint Timeframe <span class="required">*</span></label>
+                <input type="number" id="timeframe" placeholder="e.g., 10 (days)" min="1" required>
+                <small style="color: var(--color-text-secondary); margin-top: var(--space-8); display: block;">Number of days in sprint</small>
+            </div>
+
+            <div class="form-group">
+                <label for="resource-budget">Resource Budget (Hours) <span class="required">*</span></label>
+                <input type="number" id="resource-budget" placeholder="e.g., 160 (total hours available)" min="1" required>
+                <small style="color: var(--color-text-secondary); margin-top: var(--space-8); display: block;">Total available hours for sprint</small>
+            </div>
+
+            <div class="form-group">
+                <label for="business-goal">Business Goal <span class="required">*</span></label>
+                <input type="text" id="business-goal" placeholder="e.g., Increase user retention by 20%" required>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="backToResults()">← Back to Results</button>
+                <button class="btn-primary" id="prioritize-btn" onclick="prioritizeFeatures()">
+                    🎯 Generate Prioritization
+                </button>
+            </div>
+        </div>
+
+        <!-- Prioritization Results -->
+        <div id="prioritization-results" style="display: none;">
+            <div class="card">
+                <h2>📈 Prioritization Results</h2>
+                <div id="prioritization-output"></div>
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="startOver()">🔄 Start Over</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data for demonstration
+        const mockResults = {
+            bug: 24,
+            feature: 18,
+            requirement: 15,
+            friction: 22,
+            painpoint: 19,
+            positive: 28,
+            aiAnalysis: "Users report consistent performance issues on older devices. The most common friction point is the onboarding flow."
+        };
+
+        const mockDetailedResults = {
+            bugs: [
+                "App crashes when switching between photos rapidly",
+                "Loading spinner doesn't disappear on slow connections",
+                "Notifications not appearing after app update",
+                "Memory leak when app runs in background",
+                "Share button not working on Android 12"
+            ],
+            features: [
+                "Users requesting dark mode for all screens",
+                "Video editing filters needed",
+                "Screenshot annotation tools",
+                "Batch download functionality",
+                "Cloud backup integration"
+            ],
+            requirements: [
+                "Support for multiple language packs",
+                "Two-factor authentication",
+                "Data export functionality",
+                "GDPR compliance",
+                "API rate limiting implementation"
+            ],
+            friction: [
+                "Onboarding process too long (5+ steps)",
+                "Search results take 3+ seconds to load",
+                "Settings menu buried in sidebar",
+                "Account recovery process unclear",
+                "Sign-up form asks for too many permissions"
+            ],
+            painpoints: [
+                "Users frustrated with ads appearing every 5 minutes",
+                "Slow performance on devices with <4GB RAM",
+                "No offline mode for saved content",
+                "Syncing issues across devices",
+                "Payment processing failures"
+            ],
+            positive: [
+                "Excellent UI/UX design praised by 28% of users",
+                "Fast and responsive app performance",
+                "Customer support team is very helpful",
+                "Regular feature updates keep app fresh",
+                "Community features are engaging and active"
+            ]
+        };
+
+        function showError(message, step = 1) {
+            const errorEl = step === 1 ? document.getElementById('error-message') : document.getElementById('error-message-step2');
+            errorEl.textContent = message;
+            errorEl.classList.add('active');
+            setTimeout(() => errorEl.classList.remove('active'), 5000);
+        }
+
+        function validateStep1() {
+            const productName = document.getElementById('product-name').value.trim();
+            const appStoreId = document.getElementById('app-store-id').value.trim();
+            const playStoreId = document.getElementById('play-store-id').value.trim();
+            const country = document.getElementById('country').value;
+            const platform = document.getElementById('platform').value;
+
+            if (!productName) { showError('Please enter a product name'); return false; }
+            if (!appStoreId) { showError('Please enter App Store ID'); return false; }
+            if (!playStoreId) { showError('Please enter Play Store ID'); return false; }
+            if (!country) { showError('Please select a country'); return false; }
+            if (!platform) { showError('Please select a platform'); return false; }
+
+            return true;
+        }
+
+        function analyzeReviews() {
+            if (!validateStep1()) return;
+
+            const analyzBtn = document.getElementById('analyze-btn');
+            analyzBtn.disabled = true;
+            analyzBtn.textContent = '⏳ Analyzing...';
+
+            // Simulate API call
+            setTimeout(() => {
+                displayResults();
+                analyzBtn.disabled = false;
+                analyzBtn.textContent = '🚀 Analyze Reviews';
+            }, 1500);
+        }
+
+        function displayResults() {
+            const resultGrid = document.getElementById('result-grid');
+            resultGrid.innerHTML = `
+                <div class="result-card bug">
+                    <div class="result-label">🐛 Bugs</div>
+                    <div class="result-value">${mockResults.bug}</div>
+                    <div class="result-subtitle">Issues found</div>
+                </div>
+                <div class="result-card feature">
+                    <div class="result-label">✨ Features</div>
+                    <div class="result-value">${mockResults.feature}</div>
+                    <div class="result-subtitle">Requested</div>
+                </div>
+                <div class="result-card requirement">
+                    <div class="result-label">📋 Requirements</div>
+                    <div class="result-value">${mockResults.requirement}</div>
+                    <div class="result-subtitle">Needed</div>
+                </div>
+                <div class="result-card friction">
+                    <div class="result-label">⚠️ Friction</div>
+                    <div class="result-value">${mockResults.friction}</div>
+                    <div class="result-subtitle">Points</div>
+                </div>
+                <div class="result-card painpoint">
+                    <div class="result-label">💔 Pain Points</div>
+                    <div class="result-value">${mockResults.painpoint}</div>
+                    <div class="result-subtitle">Identified</div>
+                </div>
+                <div class="result-card positive">
+                    <div class="result-label">👍 Positive</div>
+                    <div class="result-value">${mockResults.positive}</div>
+                    <div class="result-subtitle">Reviews</div>
+                </div>
+            `;
+
+            const detailedResults = document.getElementById('detailed-results');
+            detailedResults.innerHTML = `
+                <div class="data-section">
+                    <h3>🤖 AI Special Analysis</h3>
+                    <p style="color: var(--color-text-secondary); line-height: 1.8;">${mockResults.aiAnalysis}</p>
+                </div>
+                <div class="data-section">
+                    <h3>🐛 Bugs (${mockResults.bug})</h3>
+                    ${mockDetailedResults.bugs.map(bug => `
+                        <div class="review-item">
+                            <div class="review-text">${bug}</div>
+                            <span class="review-badge">Bug</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="data-section">
+                    <h3>✨ Features (${mockResults.feature})</h3>
+                    ${mockDetailedResults.features.map(feature => `
+                        <div class="review-item">
+                            <div class="review-text">${feature}</div>
+                            <span class="review-badge">Feature</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="data-section">
+                    <h3>📋 Requirements (${mockResults.requirement})</h3>
+                    ${mockDetailedResults.requirements.map(req => `
+                        <div class="review-item">
+                            <div class="review-text">${req}</div>
+                            <span class="review-badge" style="background: #f3e8ff; color: var(--color-requirement);">Requirement</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="data-section">
+                    <h3>⚠️ Usability Friction (${mockResults.friction})</h3>
+                    ${mockDetailedResults.friction.map(friction => `
+                        <div class="review-item">
+                            <div class="review-text">${friction}</div>
+                            <span class="review-badge" style="background: #fed7aa; color: var(--color-friction);">Friction</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="data-section">
+                    <h3>💔 Pain Points (${mockResults.painpoint})</h3>
+                    ${mockDetailedResults.painpoints.map(pain => `
+                        <div class="review-item">
+                            <div class="review-text">${pain}</div>
+                            <span class="review-badge" style="background: #fecaca; color: var(--color-error);">Pain Point</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="data-section">
+                    <h3>👍 Positive Reviews (${mockResults.positive})</h3>
+                    ${mockDetailedResults.positive.map(pos => `
+                        <div class="review-item">
+                            <div class="review-text">${pos}</div>
+                            <span class="review-badge" style="background: #dcfce7; color: var(--color-positive);">Positive</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            document.getElementById('step1-card').style.display = 'none';
+            document.getElementById('results-container').classList.add('active');
+            document.getElementById('step1-indicator').classList.add('completed');
+        }
+
+        function moveToStep2() {
+            document.getElementById('results-container').classList.remove('active');
+            document.getElementById('step2-indicator').classList.add('active');
+            document.getElementById('step1-indicator').classList.remove('active');
+            document.getElementById('step2-card').style.display = 'block';
+        }
+
+        function updatePrioritizationFields() {
+            const technique = document.getElementById('prioritization-technique').value;
+            console.log('Selected technique:', technique);
+        }
+
+        function validateStep2() {
+            const technique = document.getElementById('prioritization-technique').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const budget = document.getElementById('resource-budget').value;
+            const goal = document.getElementById('business-goal').value.trim();
+
+            if (!technique) { showError('Please select a prioritization technique', 2); return false; }
+            if (!timeframe) { showError('Please enter sprint timeframe', 2); return false; }
+            if (!budget) { showError('Please enter resource budget', 2); return false; }
+            if (!goal) { showError('Please enter a business goal', 2); return false; }
+
+            return true;
+        }
+
+        function prioritizeFeatures() {
+            if (!validateStep2()) return;
+
+            const btn = document.getElementById('prioritize-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Prioritizing...';
+
+            // Simulate API call to backend
+            setTimeout(() => {
+                const technique = document.getElementById('prioritization-technique').value;
+                const timeframe = document.getElementById('timeframe').value;
+                const budget = document.getElementById('resource-budget').value;
+                const goal = document.getElementById('business-goal').value;
+
+                displayPrioritizationResults(technique, timeframe, budget, goal);
+                btn.disabled = false;
+                btn.textContent = '🎯 Generate Prioritization';
+            }, 1500);
+        }
+
+        function displayPrioritizationResults(technique, timeframe, budget, goal) {
+            const output = document.getElementById('prioritization-output');
+            const techniqueLabel = technique === 'moscow' ? 'MoSCoW' : 'Lean Prioritization';
+            
+            output.innerHTML = `
+                <div class="data-section">
+                    <h3>📊 Prioritization Configuration</h3>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-16);">
+                        <div>
+                            <strong>Technique:</strong>
+                            <p style="color: var(--color-text-secondary);">${techniqueLabel}</p>
+                        </div>
+                        <div>
+                            <strong>Sprint Duration:</strong>
+                            <p style="color: var(--color-text-secondary);">${timeframe} days</p>
+                        </div>
+                        <div>
+                            <strong>Resource Budget:</strong>
+                            <p style="color: var(--color-text-secondary);">${budget} hours</p>
+                        </div>
+                        <div>
+                            <strong>Business Goal:</strong>
+                            <p style="color: var(--color-text-secondary);">${goal}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-section">
+                    <h3>🎯 Prioritized Items</h3>
+                    <div class="review-item">
+                        <strong style="color: var(--color-text-primary);">Priority 1: Fix crash on rapid photo switching</strong>
+                        <p style="color: var(--color-text-secondary); margin-top: var(--space-8);">Impact: High | Effort: Medium | Estimated: 3 days</p>
+                        <span class="review-badge" style="background: #fee2e2; color: var(--color-error);">Critical Bug</span>
+                    </div>
+                    <div class="review-item" style="margin-top: var(--space-12);">
+                        <strong style="color: var(--color-text-primary);">Priority 2: Implement dark mode</strong>
+                        <p style="color: var(--color-text-secondary); margin-top: var(--space-8);">Impact: Medium | Effort: Low | Estimated: 2 days</p>
+                        <span class="review-badge" style="background: #e0e7ff; color: var(--color-feature);">High-Value Feature</span>
+                    </div>
+                    <div class="review-item" style="margin-top: var(--space-12);">
+                        <strong style="color: var(--color-text-primary);">Priority 3: Add two-factor authentication</strong>
+                        <p style="color: var(--color-text-secondary); margin-top: var(--space-8);">Impact: High | Effort: High | Estimated: 5 days</p>
+                        <span class="review-badge" style="background: #f3e8ff; color: var(--color-requirement);">Security Requirement</span>
+                    </div>
+                </div>
+
+                <div class="data-section" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
+                    <h3 style="color: #166534;">💡 Recommendations</h3>
+                    <ul style="color: var(--color-text-secondary); line-height: 1.8; margin-left: var(--space-16);">
+                        <li>Focus on critical bug fixes first to stabilize the app</li>
+                        <li>Ship dark mode early as a low-effort, high-delight feature</li>
+                        <li>Plan security work with sufficient buffer in the sprint</li>
+                        <li>Expected completion: ${timeframe} days with current resource allocation (${budget} hours)</li>
+                    </ul>
+                </div>
+            `;
+
+            document.getElementById('step2-card').style.display = 'none';
+            document.getElementById('prioritization-results').style.display = 'block';
+            document.getElementById('step2-indicator').classList.add('completed');
+        }
+
+        function resetForm() {
+            document.getElementById('product-name').value = '';
+            document.getElementById('app-store-id').value = '';
+            document.getElementById('play-store-id').value = '';
+            document.getElementById('country').value = '';
+            document.getElementById('platform').value = '';
+            document.getElementById('step1-card').style.display = 'block';
+            document.getElementById('results-container').classList.remove('active');
+            document.getElementById('step1-indicator').classList.remove('completed');
+            document.getElementById('step2-indicator').classList.remove('active');
+        }
+
+        function backToResults() {
+            document.getElementById('step2-card').style.display = 'none';
+            document.getElementById('results-container').classList.add('active');
+            document.getElementById('step2-indicator').classList.remove('active');
+            document.getElementById('step1-indicator').classList.add('completed');
+        }
+
+        function startOver() {
+            resetForm();
+            document.getElementById('prioritization-results').style.display = 'none';
+            document.getElementById('step1-card').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

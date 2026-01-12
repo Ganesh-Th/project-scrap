@@ -1,0 +1,46 @@
+# Multi-Source Review Scraper API
+# Install with: pip install -r requirements.txt
+
+# =============================================================================
+# FastAPI & Server
+# =============================================================================
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# =============================================================================
+# HTTP Clients
+# =============================================================================
+# Async HTTP client for Reddit scraping (replaces requests)
+httpx>=0.27.0
+
+# HTML parsing for Reddit scraping
+beautifulsoup4>=4.12.0
+
+# =============================================================================
+# Redis
+# =============================================================================
+# Async Redis client for task persistence
+redis>=5.0.0
+
+# =============================================================================
+# External APIs
+# =============================================================================
+# SerpApi for Google Play Store, Apple App Store, and Google Search
+google-search-results>=2.4.2
+
+# Google Gemini API for sentiment analysis
+google-genai>=1.0.0
+
+# =============================================================================
+# Development (Optional)
+# =============================================================================
+# pytest>=8.0.0
+# pytest-asyncio>=0.23.0
+# pytest-cov>=4.1.0
+# httpx  # for TestClient (already included above)
+
+
+

@@ -1,5 +1,6 @@
 """FastAPI application initialization."""
 from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -45,7 +46,7 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     
     app = FastAPI(
-        title="Multi-Source Review Scraper API",
+        title="Sentiment to Sprint",
         description="""
 ## Overview
 A production-ready FastAPI application for scraping reviews from multiple sources 
@@ -88,11 +89,18 @@ The AI categorizes findings into 7 types:
         openapi_url="/openapi.json",
         lifespan=lifespan
     )
+
+    # CORS configuration
+    origins = [
+        "http://localhost:3000",
+        os.getenv("FRONTEND_URL", ""),
+        "https://*.vercel.app",
+    ]
     
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
+        allow_origins=origins,  # Configure appropriately for production
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

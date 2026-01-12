@@ -3,9 +3,6 @@ import json
 import asyncio
 from typing import Dict, Any
 
-from google import genai as genai_new
-from google.genai import types
-
 from app.config import get_settings
 from app.logging_config import get_logger
 from app.utils.helpers import clean_json_response

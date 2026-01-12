@@ -110,7 +110,7 @@ async def _scrape_thread_details(
                             comments_data.append({
                                 "text": text
                             })
-                    except:
+                    except Exception:
                         continue
                 
                 comment_count = str(len(comments_data))

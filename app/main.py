@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     
     try:
         # Initialize Redis connection
-        store = await RedisTaskStore.get_instance()
+        await RedisTaskStore.get_instance()
         logger.info("Redis connection established")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
@@ -123,8 +123,8 @@ The AI categorizes findings into 7 types:
         try:
             store = await RedisTaskStore.get_instance()
             redis_connected = await store.is_connected()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"Health check: failed to verify Redis connectivity: {exc}")
         
         return {
             "status": "healthy" if redis_connected else "degraded",

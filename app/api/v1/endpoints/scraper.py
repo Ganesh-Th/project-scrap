@@ -1,14 +1,13 @@
 """Scraper API endpoints."""
 import uuid
 import asyncio
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Depends
 
 from app.config import get_settings
 from app.logging_config import get_logger
 from app.core.redis_store import RedisTaskStore, get_redis_store
-from app.core.connection_manager import get_connection_manager, ConnectionManager
+from app.core.connection_manager import get_connection_manager
 from app.models.requests import (
     GooglePlayRequest,
     AppleStoreRequest,
@@ -349,11 +348,11 @@ async def websocket_task_progress(
                 # Send ping to keep connection alive
                 try:
                     await websocket.send_json({"type": "ping"})
-                except:
+                except Exception:
                     break
                     
     except WebSocketDisconnect:
-        pass
+        logger.error(f"WebSocket disconnected for task {task_id}")
     except Exception as e:
         logger.error(f"WebSocket error for task {task_id}: {e}")
     finally:

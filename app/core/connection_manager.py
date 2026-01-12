@@ -3,9 +3,7 @@ import json
 import asyncio
 from typing import Dict, Set
 from fastapi import WebSocket
-from redis.asyncio.client import PubSub
-
-from app.core.redis_store import RedisTaskStore, get_redis_store
+from app.core.redis_store import get_redis_store
 from app.logging_config import get_logger
 from app.models.responses import TaskStatus, ProgressUpdate
 

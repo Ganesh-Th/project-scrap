@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.logging_config import get_logger
-from app.models.responses import TaskStatus, TaskResult, ProgressUpdate
+from app.models.responses import TaskStatus, ProgressUpdate
 
 
 logger = get_logger(__name__)
@@ -69,8 +69,8 @@ class RedisTaskStore:
             if self._client:
                 await self._client.ping()
                 return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Redis ping failed in is_connected: {e}")
         return False
     
     def _task_key(self, task_id: str) -> str:

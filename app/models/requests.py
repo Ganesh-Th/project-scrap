@@ -1,5 +1,5 @@
 """Pydantic request models for API endpoints."""
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, Field
 
 

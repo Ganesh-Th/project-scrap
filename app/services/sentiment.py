@@ -1,6 +1,6 @@
 """Gemini sentiment analysis service."""
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from google import genai as genai_new
 from google.genai import types
@@ -8,7 +8,6 @@ from google.genai import types
 from app.config import get_settings
 from app.logging_config import get_logger
 from app.services.data_processor import (
-    build_gemini_query,
     extract_google_search_urls,
     parse_toon_findings
 )

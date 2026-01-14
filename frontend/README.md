@@ -1,6 +1,8 @@
-# Frontend - Review Sentiment Analyzer UI
+# Frontend - Sentiment to Sprint UI
 
-A modern Next.js application providing a user-friendly interface for the Multi-Source Review Scraper API.
+A modern Next.js application providing a user-friendly interface for the Sentiment to Sprint API.
+
+> 📖 For product overview and vision, see the [Main README](../README.md)
 
 ## ✨ Features
 
@@ -11,13 +13,20 @@ A modern Next.js application providing a user-friendly interface for the Multi-S
 - **Modern UI**: Built with shadcn/ui components and Tailwind CSS
 - **TypeScript**: Full type safety throughout the codebase
 
-## 🎨 Tech Stack
+---
 
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v4
-- **Components**: shadcn/ui
-- **State Management**: React hooks
+## 🛠 Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| **Next.js 16** | React framework with App Router |
+| **TypeScript** | Type-safe JavaScript |
+| **Tailwind CSS v4** | Utility-first styling |
+| **shadcn/ui** | Accessible component library |
+| **React Hooks** | State management |
+| **Vercel** | Frontend deployment |
+
+---
 
 ## 🚀 Quick Start
 
@@ -149,7 +158,7 @@ npm run start
 ## 🔗 Related
 
 - [Backend Documentation](../app/README.md) - FastAPI backend
-- [Main README](../README.md) - Project overview
+- [Main README](../README.md) - Product overview and vision
 
 ## 📝 API Integration
 
@@ -160,6 +169,26 @@ The frontend communicates with the backend via REST API:
 | `/api/v1/scrape` | POST | Start scraping task |
 | `/api/v1/task/{id}` | GET | Get task status/result |
 | `/api/v1/prioritize` | POST | Prioritize findings |
+
+---
+
+## 🎓 Skills Demonstrated
+
+This frontend showcases proficiency in:
+
+### Frontend Development
+- ✅ Modern React with Next.js 16 App Router
+- ✅ TypeScript for type safety
+- ✅ State management with React hooks
+- ✅ Component-based architecture
+- ✅ Responsive design with Tailwind CSS
+- ✅ API integration and error handling
+
+### UI/UX Design
+- ✅ Accessible component patterns (shadcn/ui)
+- ✅ Real-time feedback with progress indicators
+- ✅ Clean, intuitive user flows
+- ✅ Theme customization with CSS variables
 
 ---
 

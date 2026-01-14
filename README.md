@@ -1,4 +1,4 @@
-# 🔍 Review Sentiment Analyzer
+# � Sentiment to Sprint
 
 <div align="center">
 
@@ -9,25 +9,35 @@
 ![Redis](https://img.shields.io/badge/Redis-5.0+-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 
-**A full-stack AI-powered application for scraping app reviews from multiple sources, performing sentiment analysis, and generating prioritized product backlogs.**
+**A product intelligence platform that transforms unstructured user feedback into structured, actionable product insights and sprint-ready decisions.**
 
-[Features](#-features) • [Tech Stack](#-tech-stack) • [Architecture](#-system-architecture) • [Quick Start](#-quick-start) • [API Docs](#-api-documentation) • [Screenshots](#-screenshots)
+[Vision](#-product-vision) • [Who Is This For](#-who-is-this-for) • [User Journey](#-user-journey) • [Features](#-features) • [Screenshots](#-screenshots) • [Get Started](#-get-started)
 
 </div>
 
 ---
 
-## 🎯 Project Overview
+## 💡 Product Vision
 
-This project solves the challenge of **understanding user sentiment at scale** by aggregating reviews from multiple platforms, analyzing them with AI, and converting insights into actionable product tasks.
+> To become the default AI-powered bridge between customer sentiment and agile product execution.
 
-### The Problem
-- Product teams spend hours manually reading reviews across platforms
-- Reviews are scattered across Google Play, App Store, Reddit, and forums
-- Difficult to identify patterns and prioritize what to fix first
+---
 
-### The Solution
-An end-to-end pipeline that:
+## 🎯 The Problem
+
+Product teams struggle to manually aggregate, analyze, and prioritize large volumes of user feedback scattered across multiple platforms:
+
+- **Feedback Overload** — Hours spent manually reading reviews across Google Play, App Store, Reddit, and forums
+- **Scattered Sources** — Reviews and discussions are fragmented across platforms with no unified view
+- **Unclear Prioritization** — Difficult to identify patterns and prioritize what to fix first
+- **Disconnected from Execution** — Existing solutions are qualitative, slow, or disconnected from agile development frameworks
+
+---
+
+## ✅ The Solution
+
+**Sentiment to Sprint** provides an end-to-end pipeline that:
+
 1. **Scrapes** reviews from 4+ sources concurrently
 2. **Analyzes** sentiment using Google Gemini AI
 3. **Categorizes** findings (bugs, features, pain points, etc.)
@@ -36,280 +46,72 @@ An end-to-end pipeline that:
 
 ---
 
+## 👥 Who Is This For?
+
+### Primary: Product Manager
+| Goals | Pain Points |
+|-------|-------------|
+| Prioritize roadmap effectively | Feedback overload |
+| Reduce analysis time | Unclear prioritization |
+| Data-driven decisions | Manual review reading |
+
+### Secondary: Founder / Early-stage Builder
+| Goals | Pain Points |
+|-------|-------------|
+| Validate product direction quickly | Limited resources |
+| Understand user needs | Noisy feedback |
+| Move fast with confidence | No dedicated PM team |
+
+---
+
+## 🛤 User Journey
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   STEP 1    │    │   STEP 2    │    │   STEP 3    │    │   STEP 4    │    │   STEP 5    │
+│             │───▶│             │───▶│             │───▶│             │───▶│             │
+│   Input     │    │   Scrape    │    │  Analyze    │    │ Prioritize  │    │   Output    │
+│  Product    │    │  Reviews    │    │  Sentiment  │    │  Findings   │    │   Sprint    │
+│   Info      │    │  (4+ src)   │    │   (AI)      │    │  (MoSCoW)   │    │   Backlog   │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+```
+
+| Step | Description |
+|------|-------------|
+| **1. Input** | Enter product identifiers (App Store ID, Play Store ID, country, platform) |
+| **2. Scrape** | System concurrently scrapes Google Play, Apple App Store, Reddit, and Google Search |
+| **3. Analyze** | AI categorizes feedback into 7 finding types with sentiment analysis |
+| **4. Prioritize** | Apply MoSCoW or Lean framework with sprint constraints |
+| **5. Output** | Receive sprint-ready prioritized backlog with actionable tasks |
+
+---
+
 ## ✨ Features
 
-### 🔄 Multi-Source Data Aggregation
-- **Google Play Store** - App reviews with ratings, dates, and user info
-- **Apple App Store** - iOS app reviews across 40+ countries
-- **Reddit** - Subreddit discussions and user feedback
-- **Google Search** - Web results for broader sentiment context
+### Must Have (v1) ✅
+| Feature | Description |
+|---------|-------------|
+| **Multi-Source Scraping** | Google Play, Apple App Store, Reddit, Google Search |
+| **AI Sentiment Analysis** | Google Gemini-powered categorization into 7 finding types |
+| **Prioritization Frameworks** | MoSCoW and Lean methodologies with sprint planning |
+| **Real-Time Progress** | WebSocket updates during analysis |
 
-### 🤖 AI-Powered Analysis
-- **Google Gemini Integration** - Advanced LLM for sentiment analysis
-- **Smart Categorization** - 7 finding types (bugs, features, pain points, etc.)
-- **Pattern Recognition** - AI-discovered insights from review clusters
-- **Confidence Scoring** - Reliability metrics for each finding
+### Should Have (Planned)
+| Feature | Description |
+|---------|-------------|
+| **Exportable Outputs** | CSV/PDF export of findings and backlog |
+| **Historical Comparison** | Track sentiment changes over time |
 
-### ⚡ Real-Time Processing
-- **WebSocket Updates** - Live progress streaming to frontend
-- **Async Architecture** - Non-blocking concurrent scraping
-- **Task Persistence** - Redis-backed with 24-hour TTL
-- **Progress Tracking** - Granular status updates per source
+### Could Have (Future)
+| Feature | Description |
+|---------|-------------|
+| **Jira Integration** | Push tasks directly to Jira |
+| **Team Collaboration** | Shared workspaces and comments |
 
-### 📋 Product Prioritization
-- **MoSCoW Framework** - Must/Should/Could/Won't categorization
-- **Lean Methodology** - Value vs. effort scoring
-- **Sprint Planning** - Budget and duration constraints
-- **Actionable Backlog** - Ready-to-use task descriptions
-
-### 🎨 Modern Frontend
-- **Responsive UI** - Works on desktop and mobile
-- **Dark/Light Theme** - Custom purple brand theme
-- **Interactive Results** - Expandable categories and findings
-- **Real-Time Feedback** - Progress bars and status updates
-
----
-
-## 🛠 Tech Stack
-
-### Backend
-| Technology | Purpose |
-|------------|---------|
-| **Python 3.10+** | Core language |
-| **FastAPI** | High-performance async web framework |
-| **Pydantic v2** | Data validation and serialization |
-| **Redis** | Task queue and result caching |
-| **httpx** | Async HTTP client for scraping |
-| **BeautifulSoup4** | HTML parsing for Reddit |
-| **Google Gemini** | AI sentiment analysis |
-| **SerpAPI** | Google/App Store data extraction |
-| **WebSockets** | Real-time progress updates |
-| **Uvicorn** | ASGI server |
-
-### Frontend
-| Technology | Purpose |
-|------------|---------|
-| **Next.js 16** | React framework with App Router |
-| **TypeScript** | Type-safe JavaScript |
-| **Tailwind CSS v4** | Utility-first styling |
-| **shadcn/ui** | Accessible component library |
-| **React Hooks** | State management |
-
-### DevOps & Tools
-| Technology | Purpose |
-|------------|---------|
-| **Docker** | Containerization (planned) |
-| **Vercel** | Frontend deployment |
-| **Railway** | Backend deployment |
-| **Git** | Version control |
-
----
-
-## 🏗 System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND (Next.js)                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │ AnalysisForm│  │ProgressModal│  │ ResultsView │  │PrioritizationResults│ │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘ │
-│         │                │                │                     │            │
-│         └────────────────┴────────────────┴─────────────────────┘            │
-│                                    │                                          │
-│                          ┌─────────▼─────────┐                               │
-│                          │    API Client     │                               │
-│                          │  (lib/api.ts)     │                               │
-│                          └─────────┬─────────┘                               │
-└────────────────────────────────────┼─────────────────────────────────────────┘
-                                     │ REST API / WebSocket
-┌────────────────────────────────────┼─────────────────────────────────────────┐
-│                              BACKEND (FastAPI)                               │
-│                          ┌─────────▼─────────┐                               │
-│                          │   API Endpoints   │                               │
-│                          │ (scraper.py)      │                               │
-│                          └─────────┬─────────┘                               │
-│                                    │                                          │
-│    ┌───────────────────────────────┼───────────────────────────────┐         │
-│    │                               │                               │         │
-│    ▼                               ▼                               ▼         │
-│ ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐│
-│ │Google    │  │Apple     │  │Reddit    │  │Google    │  │  Prioritization  ││
-│ │Play      │  │Store     │  │Scraper   │  │Search    │  │  Engine          ││
-│ │Scraper   │  │Scraper   │  │(httpx)   │  │Scraper   │  │  (MoSCoW/Lean)   ││
-│ │(SerpAPI) │  │(SerpAPI) │  │          │  │(SerpAPI) │  │                  ││
-│ └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────────┬─────────┘│
-│      │             │             │             │                  │          │
-│      └─────────────┴─────────────┴─────────────┘                  │          │
-│                          │                                        │          │
-│                ┌─────────▼─────────┐                             │          │
-│                │   Data Processor  │                             │          │
-│                │   (Aggregation)   │                             │          │
-│                └─────────┬─────────┘                             │          │
-│                          │                                        │          │
-│                ┌─────────▼─────────┐              ┌──────────────▼────────┐ │
-│                │  Gemini AI        │              │       Redis           │ │
-│                │  Sentiment Engine │◄─────────────►  Task Storage         │ │
-│                └───────────────────┘              │  (24hr TTL)           │ │
-│                                                   └───────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                    ┌────────────────┼────────────────┐
-                    ▼                ▼                ▼
-            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-            │ Google Play │  │ App Store   │  │   Reddit    │
-            │   API       │  │   API       │  │   Website   │
-            └─────────────┘  └─────────────┘  └─────────────┘
-```
-
----
-
-## 📁 Project Structure
-
-```
-project-scrap/
-├── app/                          # 🐍 BACKEND (FastAPI)
-│   ├── api/v1/endpoints/         # API route handlers
-│   │   └── scraper.py            # Main scraper endpoints
-│   ├── core/                     # Core infrastructure
-│   │   ├── redis_store.py        # Redis task persistence
-│   │   └── connection_manager.py # WebSocket management
-│   ├── models/                   # Pydantic data models
-│   │   ├── requests.py           # Request validation
-│   │   └── responses.py          # Response schemas
-│   ├── services/                 # Business logic
-│   │   ├── google_play.py        # Google Play scraper
-│   │   ├── apple_store.py        # Apple Store scraper
-│   │   ├── reddit.py             # Async Reddit scraper
-│   │   ├── google_search.py      # Google Search scraper
-│   │   ├── sentiment.py          # Gemini sentiment analysis
-│   │   ├── data_processor.py     # Data aggregation
-│   │   └── prioritization.py     # Task prioritization
-│   ├── utils/                    # Utility functions
-│   ├── config.py                 # Pydantic Settings
-│   └── main.py                   # FastAPI app
-│
-├── frontend/                     # ⚛️ FRONTEND (Next.js)
-│   ├── src/
-│   │   ├── app/                  # App Router pages
-│   │   ├── components/           # React components
-│   │   │   ├── ui/               # shadcn/ui components
-│   │   │   ├── AnalysisForm.tsx
-│   │   │   ├── ResultsView.tsx
-│   │   │   └── ...
-│   │   ├── hooks/                # Custom React hooks
-│   │   ├── lib/                  # API client & utils
-│   │   └── types/                # TypeScript interfaces
-│   └── package.json
-│
-├── logs/                         # Application logs
-├── requirements.txt              # Python dependencies
-├── run.py                        # Backend entry point
-└── README.md                     # This file
-```
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.10+
-- Node.js 18+
-- Redis server
-- API keys: SerpAPI, Google Gemini
-
-### Backend Setup
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/review-sentiment-analyzer.git
-cd review-sentiment-analyzer
-
-# Create virtual environment
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API keys
-
-# Start Redis (Docker)
-docker run -d -p 6379:6379 redis:alpine
-
-# Run backend
-python run.py
-```
-
-### Frontend Setup
-
-```bash
-# Navigate to frontend
-cd frontend
-
-# Install dependencies
-npm install
-
-# Configure environment
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
-
-# Run development server
-npm run dev
-```
-
-### Access the Application
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:8000 |
-| Swagger Docs | http://localhost:8000/docs |
-| ReDoc | http://localhost:8000/redoc |
-
----
-
-## 📡 API Documentation
-
-### Core Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/scrape` | Start multi-source scrape task |
-| `GET` | `/api/v1/task/{task_id}` | Get task status and result |
-| `POST` | `/api/v1/prioritize` | Prioritize findings from analysis |
-| `WS` | `/ws/task/{task_id}` | WebSocket for real-time progress |
-
-### Single-Source Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/scrape/google-play` | Google Play only |
-| `POST` | `/api/v1/scrape/apple-store` | Apple Store only |
-| `POST` | `/api/v1/scrape/reddit` | Reddit only |
-| `POST` | `/api/v1/scrape/google-search` | Google Search only |
-
-### Example Request
-
-```bash
-curl -X POST http://localhost:8000/api/v1/scrape \
-  -H "Content-Type: application/json" \
-  -d '{
-    "product_name": "Spotify",
-    "google_play": {
-      "product_id": "com.spotify.music",
-      "platform": "phone"
-    },
-    "apple_store": {
-      "product_id": "324684580",
-      "country": "us"
-    },
-    "include_reddit": true,
-    "include_google_search": true
-  }'
-```
+### Won't Have (v1)
+- Real-time continuous monitoring
+- Team accounts
+- Native mobile apps
 
 ---
 
@@ -317,98 +119,91 @@ curl -X POST http://localhost:8000/api/v1/scrape \
 
 The AI categorizes findings into 7 actionable types:
 
-| Type | Icon | Description | Example |
-|------|------|-------------|---------|
-| `bug` | 🐛 | Technical issues, crashes | "App crashes when uploading photos" |
-| `feature_request` | ✨ | User-requested features | "Please add dark mode" |
-| `requirement` | 📋 | Must-have missing features | "Need offline support" |
-| `usability_friction` | 🔧 | UX issues | "Navigation is confusing" |
-| `pain_point` | 😤 | User frustrations | "Too many ads" |
-| `positive_review` | ⭐ | Things users love | "Best app for podcasts!" |
-| `ai_insight` | 🤖 | AI-discovered patterns | "30% of users mention slow loading" |
+| Type | Icon | Description |
+|------|------|-------------|
+| `bug` | 🐛 | Technical issues, crashes, errors |
+| `feature_request` | ✨ | User-requested new features |
+| `requirement` | 📋 | Must-have missing features |
+| `usability_friction` | 🔧 | UX issues causing frustration |
+| `pain_point` | 😤 | General user dissatisfaction |
+| `positive_review` | ⭐ | Things users love |
+| `ai_insight` | 🤖 | AI-discovered patterns |
+
+> 📖 For detailed category examples and API response formats, see the [Backend Documentation](app/README.md#-analysis-output-categories)
 
 ---
 
 ## 📸 Screenshots
 
-> *Add screenshots of your application here*
+> *Screenshots coming soon*
 
 | Analysis Form | Results View | Prioritization |
 |---------------|--------------|----------------|
-| Step 1 form | Categorized findings | Sprint backlog |
+| Step 1: Configure sources | Categorized findings | Sprint-ready backlog |
 
 ---
 
-## ⚙️ Configuration
+## 🚀 Get Started
 
-### Environment Variables
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- Redis server
+- API keys: SerpAPI, Google Gemini
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `SERPAPI_KEY` | ✅ | - | SerpAPI key for scraping |
-| `GEMINI_API_KEY` | ✅ | - | Google Gemini API key |
-| `REDIS_URL` | ❌ | `redis://localhost:6379` | Redis connection URL |
-| `HOST` | ❌ | `0.0.0.0` | Server host |
-| `PORT` | ❌ | `8000` | Server port |
-| `DEBUG` | ❌ | `false` | Enable debug mode |
-| `NEXT_PUBLIC_API_URL` | ✅ | - | Backend URL for frontend |
+### Quick Links
 
----
+| Documentation | Description |
+|---------------|-------------|
+| 📖 [Backend Setup](app/README.md#-quick-start) | Python/FastAPI installation, API keys, Redis setup |
+| 📖 [Frontend Setup](frontend/README.md#-quick-start) | Next.js installation, environment config |
+| 📖 [API Documentation](app/README.md#-api-endpoints) | Endpoints, request/response formats, examples |
+| 📖 [System Architecture](app/README.md#-system-architecture) | Full architecture diagram and data flow |
 
-## 🎓 Skills Demonstrated
+### Access Points
 
-This project showcases proficiency in:
-
-### Backend Development
-- ✅ Building RESTful APIs with FastAPI
-- ✅ Async/await patterns with Python asyncio
-- ✅ WebSocket implementation for real-time updates
-- ✅ Data validation with Pydantic v2
-- ✅ Redis integration for caching and persistence
-- ✅ External API integration (SerpAPI, Gemini)
-- ✅ Web scraping with httpx and BeautifulSoup
-
-### Frontend Development
-- ✅ Modern React with Next.js 16 App Router
-- ✅ TypeScript for type safety
-- ✅ State management with React hooks
-- ✅ Component-based architecture
-- ✅ Responsive design with Tailwind CSS
-- ✅ API integration and error handling
-
-### System Design
-- ✅ Microservices architecture
-- ✅ Async task processing
-- ✅ Real-time communication patterns
-- ✅ Caching strategies
-- ✅ Clean code and separation of concerns
-
-### AI/ML Integration
-- ✅ LLM integration (Google Gemini)
-- ✅ Prompt engineering for sentiment analysis
-- ✅ Structured output parsing
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| Swagger Docs | http://localhost:8000/docs |
 
 ---
 
 ## 🔮 Roadmap
 
-- [ ] **Docker & Compose** - Containerized deployment
-- [ ] **pytest Suite** - Unit and integration tests
-- [ ] **GitHub Actions CI** - Automated testing
-- [ ] **API Authentication** - JWT/API key auth
-- [ ] **Rate Limiting** - Request throttling
-- [ ] **Caching Layer** - Response caching
-- [ ] **Export Features** - CSV/PDF export
-- [ ] **Multi-language** - i18n support
+### Infrastructure
+- [ ] **Docker & Compose** — Containerized deployment
+- [ ] **pytest Suite** — Unit and integration tests
+- [ ] **GitHub Actions CI** — Automated testing
+- [ ] **API Authentication** — JWT/API key auth
+- [ ] **Rate Limiting** — Request throttling
+
+### Product Features
+- [ ] **Export Features** — CSV/PDF export (Should Have)
+- [ ] **Historical Comparison** — Sentiment tracking over time (Should Have)
+- [ ] **Jira Integration** — Push to Jira (Could Have)
+- [ ] **Team Collaboration** — Shared workspaces (Could Have)
+- [ ] **Multi-language** — i18n support
 
 ---
 
-## 📚 Documentation
+## 📈 Success Metrics
+
+| Metric | Description |
+|--------|-------------|
+| **Time to Insight** | How quickly users go from input to actionable backlog |
+| **User Completion Rate** | Percentage of users who complete the full flow |
+| **Output Clarity Score** | Qualitative feedback on backlog usefulness |
+
+---
+
+## 📚 Technical Documentation
 
 | Document | Description |
 |----------|-------------|
-| [Backend README](app/README.md) | FastAPI server documentation |
-| [Frontend README](frontend/README.md) | Next.js application documentation |
+| [Backend README](app/README.md) | FastAPI server, architecture, API docs, skills demonstrated |
+| [Frontend README](frontend/README.md) | Next.js application, components, skills demonstrated |
 
 ---
 

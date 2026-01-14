@@ -11,7 +11,7 @@
 
 **A product intelligence platform that transforms unstructured user feedback into structured, actionable product insights and sprint-ready decisions.**
 
-[Vision](#-product-vision) • [Who Is This For](#-who-is-this-for) • [User Journey](#-user-journey) • [Features](#-features) • [Screenshots](#-screenshots) • [Get Started](#-get-started)
+[Vision](#-product-vision) • [Who Is This For](#-who-is-this-for) • [User Journey](#-user-journey) • [Features](#-features) • [Wireframe Descriptions](#-Page-by-Page Wireframe Descriptions) • [Get Started](#-get-started)
 
 </div>
 
@@ -137,13 +137,94 @@ The AI categorizes findings into 7 actionable types:
 
 ---
 
-## 📸 Screenshots
+## 📸 Page-by-Page Wireframe Descriptions
 
-> *Screenshots coming soon*
+Detailed wireframe-level descriptions for each user-facing page.
 
-| Analysis Form | Results View | Prioritization |
-|---------------|--------------|----------------|
-| Step 1: Configure sources | Categorized findings | Sprint-ready backlog |
+**Landing Page**
+Purpose:
+- Communicate value proposition
+- Drive user to start analysis
+
+UI Elements:
+- App logo and name
+- Tagline explaining sentiment-to-roadmap flow
+- Primary CTA: Start Analysis
+
+Success Criteria:
+- User understands product in under 10 seconds
+
+**Product Input Page**
+Purpose:
+- Collect inputs for scraping and analysis
+
+Inputs:
+- Product Name (required)
+- App Store Product ID (optional)
+- Play Store Product ID (optional)
+- Country (dropdown)
+- Platform (dropdown: Phone, Tablet, Chromebook)
+
+CTA:
+- Analyze Sentiment
+
+Success Criteria:
+- Validation prevents empty submissions
+
+**Analysis Progress Page**
+Purpose:
+- Show analysis progress
+
+UI Elements:
+- Progress indicator
+- Status messages
+
+Success Criteria:
+- User confidence that system is working
+
+**Sentiment Results Dashboard**
+Purpose:
+- Display categorized insights
+
+Layout:
+- Tabs/cards for Bugs, Features, Requirements, Usability Friction, Pain Points, Positives, AI Analysis
+
+CTA:
+- Generate Prioritization
+
+Success Criteria:
+- Clear categorization and summaries
+
+**Prioritization Setup Modal**
+Purpose:
+- Collect prioritization constraints
+
+Inputs:
+- Framework (MoSCoW / Lean)
+- Sprint timeframe
+- Resource budget
+- Business goal
+
+CTA:
+- Run Prioritization
+
+Success Criteria:
+- Inputs validated and submitted
+
+**Sprint Output Page**
+Purpose:
+- Present prioritized sprint items
+
+Layout:
+- Grouped by priority bucket
+
+CTA:
+- Export
+- Restart Analysis
+
+Success Criteria:
+- Output usable for sprint planning
+
 
 ---
 
@@ -195,13 +276,13 @@ The AI categorizes findings into 7 actionable types:
 ---
 
 ## User Acceptance Criteria (UAC)
-Sentiment Analysis:
+**Sentiment Analysis:**
 - Given valid inputs, system returns categorized insights
 
-Prioritization:
+**Prioritization:**
 - Given analysis data and prioritization inputs, system returns a ranked list
 
-UI:
+**UI:**
 - No broken states
 - Clear error handling
 

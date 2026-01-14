@@ -142,6 +142,7 @@ The AI categorizes findings into 7 actionable types:
 Detailed wireframe-level descriptions for each user-facing page.
 
 **Landing Page**
+
 Purpose:
 - Communicate value proposition
 - Drive user to start analysis
@@ -155,6 +156,7 @@ Success Criteria:
 - User understands product in under 10 seconds
 
 **Product Input Page**
+
 Purpose:
 - Collect inputs for scraping and analysis
 
@@ -172,6 +174,7 @@ Success Criteria:
 - Validation prevents empty submissions
 
 **Analysis Progress Page**
+
 Purpose:
 - Show analysis progress
 
@@ -183,6 +186,7 @@ Success Criteria:
 - User confidence that system is working
 
 **Sentiment Results Dashboard**
+
 Purpose:
 - Display categorized insights
 
@@ -196,6 +200,7 @@ Success Criteria:
 - Clear categorization and summaries
 
 **Prioritization Setup Modal**
+
 Purpose:
 - Collect prioritization constraints
 
@@ -212,6 +217,7 @@ Success Criteria:
 - Inputs validated and submitted
 
 **Sprint Output Page**
+
 Purpose:
 - Present prioritized sprint items
 

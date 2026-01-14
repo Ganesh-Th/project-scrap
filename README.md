@@ -1,4 +1,4 @@
-# � Sentiment to Sprint
+# 🔍 Sentiment to Sprint
 
 <div align="center">
 
@@ -14,6 +14,10 @@
 [Vision](#-product-vision) • [Who Is This For](#-who-is-this-for) • [User Journey](#-user-journey) • [Features](#-features) • [Screenshots](#-screenshots) • [Get Started](#-get-started)
 
 </div>
+
+---
+
+🎓 **Website:** [Sentiment-to-Sprint](https://sts-frontend-rqc7.onrender.com/)
 
 ---
 
@@ -160,14 +164,6 @@ The AI categorizes findings into 7 actionable types:
 | 📖 [API Documentation](app/README.md#-api-endpoints) | Endpoints, request/response formats, examples |
 | 📖 [System Architecture](app/README.md#-system-architecture) | Full architecture diagram and data flow |
 
-### Access Points
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:8000 |
-| Swagger Docs | http://localhost:8000/docs |
-
 ---
 
 ## 🔮 Roadmap
@@ -198,6 +194,19 @@ The AI categorizes findings into 7 actionable types:
 
 ---
 
+## User Acceptance Criteria (UAC)
+Sentiment Analysis:
+- Given valid inputs, system returns categorized insights
+
+Prioritization:
+- Given analysis data and prioritization inputs, system returns a ranked list
+
+UI:
+- No broken states
+- Clear error handling
+
+---
+
 ## 📚 Technical Documentation
 
 | Document | Description |
@@ -221,7 +230,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is for educational and portfolio purposes.
 
 ---
 

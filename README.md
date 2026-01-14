@@ -11,7 +11,7 @@
 
 **A product intelligence platform that transforms unstructured user feedback into structured, actionable product insights and sprint-ready decisions.**
 
-[Vision](#-product-vision) • [Who Is This For](#-who-is-this-for) • [User Journey](#-user-journey) • [Features](#-features) • [Wireframe Descriptions](#-Page-by-Page Wireframe Descriptions) • [Get Started](#-get-started)
+[Vision](#-product-vision) • [Who Is This For](#-who-is-this-for) • [User Journey](#-user-journey) • [Features](#-features) • [Wireframe Descriptions](#-Page-by-Page-Wireframe-Descriptions) • [Get Started](#-get-started)
 
 </div>
 

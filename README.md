@@ -231,26 +231,6 @@ CTA:
 Success Criteria:
 - Output usable for sprint planning
 
-
----
-
-## 🚀 Get Started
-
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- Redis server
-- API keys: SerpAPI, Google Gemini
-
-### Quick Links
-
-| Documentation | Description |
-|---------------|-------------|
-| 📖 [Backend Setup](app/README.md#-quick-start) | Python/FastAPI installation, API keys, Redis setup |
-| 📖 [Frontend Setup](frontend/README.md#-quick-start) | Next.js installation, environment config |
-| 📖 [API Documentation](app/README.md#-api-endpoints) | Endpoints, request/response formats, examples |
-| 📖 [System Architecture](app/README.md#-system-architecture) | Full architecture diagram and data flow |
-
 ---
 
 ## 🔮 Roadmap

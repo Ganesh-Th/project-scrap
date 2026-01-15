@@ -73,7 +73,7 @@ Product teams struggle to manually aggregate, analyze, and prioritize large volu
 | Step 1 | | Step 2 | | Step 3 | | Step 4 | | Step 5 |
 |:------:|:-:|:------:|:-:|:------:|:-:|:------:|:-:|:------:|
 | 📋 **Input** | ➡️ | 🔍 **Scrape** | ➡️ | 🤖 **Analyze** | ➡️ | 📊 **Prioritize** | ➡️ | 🚀 **Output** |
-| Product Info | | Reviews (4+ src) | | Sentiment (AI) | | Findings (LEAN, MoSCoW) | | Sprint Backlog |
+| Product Info | | Reviews (4+ src) | | Sentiment (AI) | | Findings (LEAN/MoSCoW) | | Sprint Backlog |
 
 | Step | Description |
 |------|-------------|

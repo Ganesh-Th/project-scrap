@@ -35,7 +35,7 @@ A production-ready FastAPI application for scraping app reviews from multiple so
 | Technology | Purpose |
 |------------|---------|
 | **Docker** | Containerization (planned) |
-| **Railway** | Backend deployment |
+| **Render** | Backend deployment |
 | **Git** | Version control |
 
 ---

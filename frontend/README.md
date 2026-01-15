@@ -24,7 +24,7 @@ A modern Next.js application providing a user-friendly interface for the Sentime
 | **Tailwind CSS v4** | Utility-first styling |
 | **shadcn/ui** | Accessible component library |
 | **React Hooks** | State management |
-| **Vercel** | Frontend deployment |
+| **Render** | Frontend deployment |
 
 ---
 
@@ -140,13 +140,14 @@ To customize colors, edit the CSS variables in `globals.css`.
 
 ## 🚀 Deployment
 
-### Vercel (Recommended)
+### Render (Recommended)
 
 1. Push to GitHub
-2. Import project in Vercel
-3. Set environment variable:
+2. Create a new Web Service in Render
+3. Connect your repository
+4. Set environment variable:
    - `NEXT_PUBLIC_API_URL` = Your production API URL
-4. Deploy
+5. Deploy
 
 ### Other Platforms
 

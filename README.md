@@ -141,95 +141,107 @@ The AI categorizes findings into 7 actionable types:
 
 Detailed wireframe-level descriptions for each user-facing page.
 
-**Landing Page**
+### 🏠 Landing Page
 
-Purpose:
-- Communicate value proposition
-- Drive user to start analysis
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Communicate value proposition and drive user to start analysis |
+| **UI Elements** | App logo, tagline explaining sentiment-to-roadmap flow, Primary CTA |
+| **CTA** | `Start Analysis` |
+| **Success Criteria** | User understands product in under 10 seconds |
 
-UI Elements:
-- App logo and name
-- Tagline explaining sentiment-to-roadmap flow
-- Primary CTA: Start Analysis
+---
 
-Success Criteria:
-- User understands product in under 10 seconds
+### 📝 Product Input Page
 
-**Product Input Page**
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Collect inputs for scraping and analysis |
+| **Inputs** | Product Name (required), App Store ID (optional), Play Store ID (optional), Country (dropdown), Platform (dropdown) |
+| **CTA** | `Analyze Sentiment` |
+| **Success Criteria** | Validation prevents empty submissions |
 
-Purpose:
-- Collect inputs for scraping and analysis
+<details>
+<summary>📋 Input Fields</summary>
 
-Inputs:
-- Product Name (required)
-- App Store Product ID (optional)
-- Play Store Product ID (optional)
-- Country (dropdown)
-- Platform (dropdown: Phone, Tablet, Chromebook)
+| Field | Required | Type |
+|-------|----------|------|
+| Product Name | ✅ Yes | Text |
+| App Store Product ID | ❌ No | Text |
+| Play Store Product ID | ❌ No | Text |
+| Country | ❌ No | Dropdown |
+| Platform | ❌ No | Dropdown (Phone, Tablet, Chromebook) |
 
-CTA:
-- Analyze Sentiment
+</details>
 
-Success Criteria:
-- Validation prevents empty submissions
+---
 
-**Analysis Progress Page**
+### ⏳ Analysis Progress Page
 
-Purpose:
-- Show analysis progress
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Show real-time analysis progress |
+| **UI Elements** | Progress indicator, status messages, source completion badges |
+| **Success Criteria** | User confidence that system is actively working |
 
-UI Elements:
-- Progress indicator
-- Status messages
+---
 
-Success Criteria:
-- User confidence that system is working
+### 📊 Sentiment Results Dashboard
 
-**Sentiment Results Dashboard**
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Display categorized insights from analysis |
+| **Layout** | Expandable cards for each category |
+| **CTA** | `Generate Prioritization` |
+| **Success Criteria** | Clear categorization and actionable summaries |
 
-Purpose:
-- Display categorized insights
+<details>
+<summary>📂 Category Cards</summary>
 
-Layout:
-- Tabs/cards for Bugs, Features, Requirements, Usability Friction, Pain Points, Positives, AI Analysis
+| Category | Icon | Description |
+|----------|------|-------------|
+| Bugs | 🐛 | Technical issues and crashes |
+| Features | ✨ | User-requested enhancements |
+| Requirements | 📋 | Must-have missing features |
+| Usability Friction | 🔧 | UX pain points |
+| Pain Points | 😤 | General dissatisfaction |
+| Positives | ⭐ | What users love |
+| AI Insights | 🤖 | Pattern discoveries |
 
-CTA:
-- Generate Prioritization
+</details>
 
-Success Criteria:
-- Clear categorization and summaries
+---
 
-**Prioritization Setup Modal**
+### ⚙️ Prioritization Setup Modal
 
-Purpose:
-- Collect prioritization constraints
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Collect prioritization constraints from user |
+| **CTA** | `Run Prioritization` |
+| **Success Criteria** | Inputs validated and submitted successfully |
 
-Inputs:
-- Framework (MoSCoW / Lean)
-- Sprint timeframe
-- Resource budget
-- Business goal
+<details>
+<summary>📋 Configuration Options</summary>
 
-CTA:
-- Run Prioritization
+| Field | Options |
+|-------|---------|
+| Framework | MoSCoW, Lean |
+| Sprint Timeframe | Custom duration |
+| Resource Budget | Hours/points |
+| Business Goal | Text input |
 
-Success Criteria:
-- Inputs validated and submitted
+</details>
 
-**Sprint Output Page**
+---
 
-Purpose:
-- Present prioritized sprint items
+### 🚀 Sprint Output Page
 
-Layout:
-- Grouped by priority bucket
-
-CTA:
-- Export
-- Restart Analysis
-
-Success Criteria:
-- Output usable for sprint planning
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Present prioritized sprint-ready backlog |
+| **Layout** | Items grouped by priority bucket (Must/Should/Could/Won't or High/Medium/Low) |
+| **CTAs** | `Export`, `Restart Analysis` |
+| **Success Criteria** | Output directly usable for sprint planning |
 
 ---
 

@@ -70,15 +70,10 @@ Product teams struggle to manually aggregate, analyze, and prioritize large volu
 
 ## 🛤 User Journey
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   STEP 1    │    │   STEP 2    │    │   STEP 3    │    │   STEP 4    │    │   STEP 5    │
-│             │───▶│             │───▶│             │───▶│             │───▶│             │
-│   Input     │    │   Scrape    │    │  Analyze    │    │ Prioritize  │    │   Output    │
-│  Product    │    │  Reviews    │    │  Sentiment  │    │  Findings   │    │   Sprint    │
-│   Info      │    │  (4+ src)   │    │   (AI)      │    │  (MoSCoW)   │    │   Backlog   │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-```
+| Step 1 | | Step 2 | | Step 3 | | Step 4 | | Step 5 |
+|:------:|:-:|:------:|:-:|:------:|:-:|:------:|:-:|:------:|
+| 📋 **Input** | ➡️ | 🔍 **Scrape** | ➡️ | 🤖 **Analyze** | ➡️ | 📊 **Prioritize** | ➡️ | 🚀 **Output** |
+| Product Info | | Reviews (4+ src) | | Sentiment (AI) | | Findings (LEAN, MoSCoW) | | Sprint Backlog |
 
 | Step | Description |
 |------|-------------|

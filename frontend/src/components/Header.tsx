@@ -17,7 +17,7 @@ export function Header() {
               <span className="text-3xl">🔍</span>
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">Review Sentinel</h1>
+              <h1 className="text-2xl md:text-3xl font-bold">Sentiment to Sprint</h1>
               <p className="text-white/85 font-medium">AI-Powered Insights</p>
             </div>
           </div>
@@ -32,6 +32,9 @@ export function Header() {
             </Badge>
             <Badge variant="secondary" className="bg-white/12 text-white border-white/20 hover:bg-white/20 transition-all">
               <span className="mr-1.5">📱</span> Reddit
+            </Badge>
+            <Badge variant="secondary" className="bg-white/12 text-white border-white/20 hover:bg-white/20 transition-all">
+              <span className="mr-1.5">G</span> Google Search
             </Badge>
             <Badge variant="secondary" className="bg-white/12 text-white border-white/20 hover:bg-white/20 transition-all">
               <span className="mr-1.5">✨</span> AI Analysis

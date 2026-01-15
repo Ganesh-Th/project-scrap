@@ -2,7 +2,7 @@
 import uuid
 import asyncio
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, Response, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Depends
 
 from app.config import get_settings
 from app.logging_config import get_logger
@@ -38,7 +38,10 @@ settings = get_settings()
 
 router = APIRouter()
 
-
+@router.options("/{path:path}")
+async def options_handler(path: str):
+    return Response(status_code=200)
+    
 async def _run_scrape_task(
     task_id: str,
     request: MultiSourceScrapeRequest,

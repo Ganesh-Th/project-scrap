@@ -1,13 +1,14 @@
 """Application configuration using Pydantic Settings."""
 from functools import lru_cache
 from pydantic_settings import BaseSettings
-
+from typing import List, Union
+import json
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Application
-    APP_NAME: str = "Multi-Source Scraper API"
+    APP_NAME: str = "Sentiment to Sprint"
     APP_VERSION: str = "1.0.0"
     API_V1_PREFIX: str = "/api/v1"
     DEBUG: bool = False
@@ -27,8 +28,7 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/scraper_api.log"
-    LOG_MAX_BYTES: int = 10 * 1024 * 1024  # 10MB
-    LOG_BACKUP_COUNT: int = 5
+   
     
     # Scraping Configuration
     MAX_REDDIT_PAGES: int = 50
@@ -43,13 +43,24 @@ class Settings(BaseSettings):
     GEMINI_MAX_TOKENS: int = 200000
     
     # CORS
-    CORS_ORIGINS: list = ["*"]
+    CORS_ORIGINS: Union[str, list[str]] = ["*"]
     
     class Config:
         env_file = ".env"
         case_sensitive = True
         extra = "ignore"
-
+    
+    def cors_origins_list(self) -> List[str]:
+        # allow JSON list string like ["https://..."]
+        if isinstance(self.CORS_ORIGINS, list):
+            return self.CORS_ORIGINS
+        s = str(self.CORS_ORIGINS).strip()
+        if s == "*":
+            return ["*"]
+        try:
+            return json.loads(s)
+        except Exception:
+            return [x.strip() for x in s.split(",") if x.strip()]
 
 @lru_cache()
 def get_settings() -> Settings:

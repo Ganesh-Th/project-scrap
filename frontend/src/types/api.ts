@@ -253,3 +253,8 @@ export const PRIORITIZATION_METHODS = [
   { value: 'MoSCoW', label: '🎯 MoSCoW (Must, Should, Could, Won\'t)' },
   { value: 'Lean', label: '📊 Lean Prioritization (Impact vs Effort)' },
 ] as const;
+
+export interface ScrapeStartResponse {
+  task_id: string;
+  status: string;
+}
